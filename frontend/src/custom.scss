@@ -1,0 +1,114 @@
+@use 'sass:color';
+
+// === Global Mixing Settings ===
+$bg-subtle-mix-pct: 90% !default;        // Controls how light the bg-subtle variant is
+$border-subtle-mix-pct: 75% !default;    // Controls how light the border-subtle variant is
+$text-emphasis-mix-pct: 80% !default;    // Controls how dark the text-emphasis variant is
+
+// === Main Theme Colors ===
+$primary:   rgb(112, 69, 255);     // Primary brand color (buttons, links)
+$secondary: rgb(38, 85, 255);     // Secondary brand (secondary buttons, accents)
+$success:   rgb(75, 186, 75);     // Success (alerts, badges)
+$danger:    rgb(255, 64, 64);     // Danger (errors, destructive actions)
+$warning:   rgb(251, 142, 41);     // Warning (warnings, alerts)
+$info:      rgb(13, 202, 240);     // Info (informational)
+$light:     rgb(247, 245, 250);     // Light backgrounds and borders
+$dark:      rgb(32, 30, 35);     // Dark backgrounds and text
+
+// === Register Theme Colors as Map ===
+// === Configurable mix percentages ===
+$bg-subtle-mix-pct: 85%;         // Background subtlety
+$border-subtle-mix-pct: 60%;     // Border subtlety
+$text-emphasis-mix-pct: 40%;     // Text emphasis strength
+
+// === Theme base colors ===
+$theme-colors: (
+    "primary":   $primary,
+    "secondary": $secondary,
+    "success":   $success,
+    "danger":    $danger,
+    "warning":   $warning,
+    "info":      $info,
+    "light":     $light,
+    "dark":      $dark
+);
+
+// === Subtle and Emphasis Maps ===
+$theme-variants: ();
+
+@each $name, $color in $theme-colors {
+    $theme-variants: map-merge($theme-variants, (
+        "#{$name}-bg-subtle": color.mix(white, $color, $bg-subtle-mix-pct),
+        "#{$name}-border-subtle": color.mix(white, $color, $border-subtle-mix-pct),
+        "#{$name}-text-emphasis": color.mix(black, $color, $text-emphasis-mix-pct)
+    ));
+}
+
+
+// === Grayscale Palette (Bootstrap defaults) ===
+$gray-100: #f8f9fa !default;     // Near white (backgrounds, borders)
+$gray-200: #e9ecef !default;
+$gray-300: #dee2e6 !default;
+$gray-400: #ced4da !default;
+$gray-500: #adb5bd !default;     // Medium gray (secondary text)
+$gray-600: #6c757d !default;     // Dark gray (text)
+$gray-700: #495057 !default;
+$gray-800: #343a40 !default;
+$gray-900: #212529 !default;     // Near black (text, borders)
+
+// === Other Brand Colors (Bootstrap defaults) ===
+$blue:   #0d6efd !default;
+$indigo: #6610f2 !default;
+$purple: #6f42c1 !default;
+$pink:   #d63384 !default;
+$red:    #dc3545 !default;
+$orange: #fd7e14 !default;
+$yellow: #ffc107 !default;
+$green:  #198754 !default;
+$teal:   #20c997 !default;
+$cyan:   #0dcaf0 !default;
+
+// === Body Colors ===
+$body-bg:    #18181a;      // Page background color
+$body-color: #f0f0f0;      // Body text color
+
+// === Fonts ===
+$font-family-sans-serif: 'Cal Sans', sans-serif !default;  // UI and body sans-serif
+$font-family-monospace:  'DM Mono', monospace !default;   // Code font
+$font-family-serif:      'Hepta Slab', serif !default;    // Serif font
+$font-family-base:       'Lexend', sans-serif !default;   // Base font-family (body text)
+
+// === Typography Overrides ===
+
+// Headings use Calsans (display font)
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cal Sans', sans-serif;
+}
+
+// Paragraphs and general text use Lexend (body font)
+body, p, span, li, blockquote, dd, dt, th, td {
+    font-family: 'Lexend', sans-serif;
+}
+
+.bg-darker {
+    background-color: color.mix(black, $dark, 25%);
+}
+
+.bg-darkest {
+    background-color: color.mix(black, $dark, 50%);
+}
+
+.bg-darkish {
+    background-color: color.mix(rgb(255, 255, 255), $dark, 25%);
+}
+
+.text-darker {
+    color: color.mix(black, $dark, 10%);
+}
+
+.text-darkest {
+    color: color.mix(black, $dark, 20%);
+}
+
+// === Import Bootstrap with overrides applied ===
+@import 'bootstrap/scss/bootstrap.scss';
