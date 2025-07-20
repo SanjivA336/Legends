@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from backend.routes import account_routes, auth_routes, home_routes
+from backend.routes import account_routes, auth_routes, library_routes
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -15,4 +15,4 @@ app.add_middleware(
 
 app.include_router(auth_routes.router)
 app.include_router(account_routes.router)
-app.include_router(home_routes.router)
+app.include_router(library_routes.router)

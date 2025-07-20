@@ -21,7 +21,10 @@ export default function HomePage() {
                 {/* Library Section */}
                 <div className="w-100 d-flex flex-column align-items-start justify-content-center bg-dark text-light p-5 rounded-5">
                     <h1 className="text-light">Your Library</h1>
-
+                    {/* link to library page */}
+                    <a href="/library" className="text-light">
+                        Go to Library
+                    </a>
                 </div>
             </div>
         </BaseLayout>

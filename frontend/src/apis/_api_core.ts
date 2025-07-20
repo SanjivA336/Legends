@@ -35,7 +35,7 @@ export async function GET_ENDPOINT<T>(endpoint: string, error: string = "Request
  * @returns A promise that resolves to the JSON response from the server.
  * @throws An error if the request fails or the response is not ok.
  */
-export async function POST_ENDPOINT<T>(endpoint: string, body: T, error: string = "Request Failed") : Promise<T> {
+export async function POST_ENDPOINT<T, R>(endpoint: string, body: T, error: string = "Request Failed") : Promise<R> {
     const res = await fetch(`${BASE}${endpoint}`, {
         method: "POST",
         credentials: "include",

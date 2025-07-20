@@ -8,16 +8,27 @@ class User(BaseModel):
     email: EmailStr
     password_hash: str
 
-class Campaign(BaseModel):
+class World(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)
     name: str
-    description: Optional[str] = None
+    description: Optional[str]
     creator_id: str
-    members: Dict[str, str]  # user.id -> role (e.g., {"user123": "DM", "user456": "player"})
-    turn_queue: List[str]    # List of user IDs in turn order
     is_public: bool = False
-    era_ids: List[str]       # List of TimelineNode IDs (Era nodes)
-    settings: Dict[str, Any] # Flexible settings dictionary
+    context: Dict[str, Any] = Field(default_factory=dict)
+    settings: Dict[str, Any] = Field(default_factory=dict)
+
+class Campaign(BaseModel):
+    id: str = Field(default_factory=lambda: uuid4().hex)
+    world_id: Optional[str] = None  # Link to world, may be None
+    name: str
+    description: Optional[str]
+    creator_id: str
+    is_public: bool = False
+    context: Dict[str, Any] = Field(default_factory=dict)  # Session-specific context
+    settings: Dict[str, Any] = Field(default_factory=dict) # Session-specific settings
+    members: Dict[str, str] = Field(default_factory=dict)
+    turn_queue: List[str] = Field(default_factory=list)
+    era_ids: List[str] = Field(default_factory=list)
 
 class TimelineNode(BaseModel):
     id: str = Field(default_factory=lambda: uuid4().hex)

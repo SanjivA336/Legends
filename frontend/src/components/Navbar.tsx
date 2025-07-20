@@ -40,6 +40,9 @@ const Navbar = () => {
                 <button className="btn btn-dark px-3 my-auto" onClick={() => navigate("/")} disabled={loading}>
                     Home
                 </button>
+                <button className="btn btn-dark px-3 my-auto" onClick={() => navigate("/library")} disabled={loading}>
+                    Library
+                </button>
                 <button className="btn btn-dark px-3 my-auto" onClick={() => navigate("/account")} disabled={loading}>
                     Account
                 </button>

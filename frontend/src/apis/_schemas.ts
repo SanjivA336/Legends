@@ -15,16 +15,44 @@ export interface UserResponse {
     email?: string;
 }
 
-// === Campaign Schemas ===
-export interface CampaignCard {
+// === World Schemas ===
+export interface WorldPayload {
+    name: string;
+    description?: string;
+    is_public?: boolean;
+    context?: Record<string, any>;
+    settings?: Record<string, any>;
+}
+
+export interface WorldResponse {
     id: string;
     name: string;
     description?: string;
+    creator: UserResponse;
     is_public: boolean;
+    context: Record<string, any>;
+    settings: Record<string, any>;
 }
 
-// === Page Schemas ===
-export interface HomePage {
-    user: UserResponse;
-    campaigns: CampaignCard[];
+// === Campaign Schemas ===
+export interface CampaignPayload {
+    name: string;
+    description?: string;
+    is_public?: boolean;
+    context?: Record<string, any>;
+    settings?: Record<string, any>;
+}
+
+export interface CampaignResponse {
+    id: string;
+    world?: WorldResponse | null;
+    name: string;
+    description?: string;
+    creator: UserResponse;
+    is_public: boolean;
+    context: Record<string, any>;
+    settings: Record<string, any>;
+    members: Record<string, string>;
+    turn_queue: string[];
+    eras: string[];
 }

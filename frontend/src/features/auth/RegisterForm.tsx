@@ -1,19 +1,22 @@
 import React, { useState } from "react";
 import { register } from "@apis/auth_api";
+import TextField from "@/components/modular/TextField";
+import ToggleField from "@/components/modular/ToggleField";
+import ErrorBox from "@/components/modular/ErrorBox";
 
 type RegisterFormProps = {
     toggleMode: () => void;
-    error: string;
-    setError: (msg: string) => void;
 };
 
-export default function RegisterForm({ toggleMode, error, setError }: RegisterFormProps) {
+export default function RegisterForm({ toggleMode }: RegisterFormProps) {
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirm, setConfirm] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,99 +51,59 @@ export default function RegisterForm({ toggleMode, error, setError }: RegisterFo
     return (
         <form className="w-100 text-center d-flex flex-column gap-2 align-items-center" onSubmit={handleSubmit}>
             <h2>Register</h2>
+            <TextField
+                value={username}
+                setValue={setUsername}
+                placeholder="Username"
+                autoComplete="username"
+                type="text"
+                label="Username"
+                required={true} />
+            <TextField
+                value={email}
+                setValue={setEmail}
+                placeholder="Email"
+                autoComplete="email"
+                type="email"
+                label="Email"
+                required={true} />
+            <TextField
+                value={password}
+                setValue={setPassword}
+                placeholder="Password"
+                autoComplete="current-password"
+                type={showPassword ? "text" : "password"}
+                label="Password"
+                required={true} />
+            <TextField
+                value={confirm}
+                setValue={setConfirm}
+                placeholder="Confirm Password"
+                autoComplete="new-password"
+                type={showPassword ? "text" : "password"}
+                label="Confirm Password"
+                required={true} />
+            <ToggleField
+                value={showPassword}
+                setValue={setShowPassword}
+                label="Show Password"
+                type="checkbox"
+                required={false}
+                disabled={loading} />
 
-            <div className="w-100 text-light mb-2">
-                <label className="w-100 text-start ps-2 pb-2">Username</label>
-                <input
-                    className="w-100 bg-darker text-light rounded-pill px-3 py-2 border-0"
-                    type="text"
-                    placeholder="Username"
-                    value={username}
-                    autoComplete="username"
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                />
-            </div>
+            <ErrorBox error={error} />
 
-            <div className="w-100 text-light mb-2">
-                <label className="w-100 text-start ps-2 pb-2">Email</label>
-                <input
-                    className="w-100 bg-darker text-light rounded-pill px-3 py-2 border-0"
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    autoComplete="email"
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                />
-            </div>
-
-            <div className="w-100 text-light mb-2">
-                <label className="w-100 text-start ps-2 pb-2">Password</label>
-                <input
-                    className="w-100 bg-darker text-light rounded-pill px-3 py-2 border-0"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Password"
-                    value={password}
-                    autoComplete="new-password"
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                />
-            </div>
-
-            <div className="w-100 text-light mb-2">
-                <label className="w-100 text-start ps-2 pb-2">Confirm Password</label>
-                <input
-                    className={`w-100 bg-darker text-light rounded-pill px-3 py-2 ${
-                        confirm && confirm !== password ? "border border-2 border-danger" : "border-0"
-                    }`}
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Confirm Password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    required
-                />
-            </div>
-
-            <div className="form-check w-100 text-start">
-                <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="showPassword"
-                    checked={showPassword}
-                    onChange={() => setShowPassword((prev) => !prev)}
-                />
-                <label className="form-check-label" htmlFor="showPassword">
-                    Show Password
-                </label>
-            </div>
-
-            {error && (
-                <div className="w-100 text-danger border border-2 border-danger p-2 bg-darker rounded-3">
-                    {error}
-                </div>
-            )}
-
-            <button
-                className="w-50 bg-primary rounded-pill px-3 py-2 border-0 text-light"
-                type="submit"
-                disabled={loading}
-            >
+            <button className="w-50 bg-primary rounded-pill px-3 py-2 border-0 text-light" type="submit" disabled={loading}>
                 Register
                 {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
-
             </button>
-
             <p>
                 Already have an account?{" "}
-                <button
-                    className="bg-transparent p-0 text-primary border-0"
-                    type="button"
-                    onClick={toggleMode}
-                >
+                <button className="bg-transparent p-0  m-0 text-primary border-0" type="button" onClick={toggleMode}>
                     Login here
                 </button>
             </p>
+
         </form>
     );
 }

@@ -18,7 +18,7 @@ const AccountSidebar = () => {
             {/* Sidebar Bottom */}
             <div className="d-flex align-items-end">
                 <div className="w-100 d-flex flex-column align-items-end my-2">
-
+                    
                 </div>
             </div>
         </div>
