@@ -3,11 +3,11 @@ import {NAVBAR_HEIGHT} from "@components/Navbar";
 import { useNavigate } from "react-router-dom";
 
 type LibraryLayoutProps = {
-    index?: number;
+    tab: number;
     children: React.ReactNode;
 };
 
-export default function LibraryLayout({ index, children }: LibraryLayoutProps) {
+export default function LibraryLayout({ tab, children }: LibraryLayoutProps) {
     const navigate = useNavigate();
 
     return (
@@ -17,16 +17,16 @@ export default function LibraryLayout({ index, children }: LibraryLayoutProps) {
             <div className="d-flex flex-column gap-3 w-100 h-100">
                 {/* Tabs */}
                 <div className="d-flex flex-row gap-3 px-3">
-                    <button className={index == 0 ? "btn btn-primary p-3 w-100" : "btn btn-dark p-3 w-100"} onClick={() => navigate("/library/worlds")}>
+                    <button className={tab === 0 ? "btn btn-primary p-3 w-100" : "btn btn-dark p-3 w-100"} onClick={() => navigate("/library/worlds")}>
                         Worlds
                     </button>
-                    <button className={index == 1 ? "btn btn-primary p-3 w-100" : "btn btn-dark p-3 w-100"} onClick={() => navigate("/library/campaigns")}>
+                    <button className={tab === 1 ? "btn btn-primary p-3 w-100" : "btn btn-dark p-3 w-100"} onClick={() => navigate("/library/campaigns")}>
                         Campaigns
                     </button>
-                    <button className={index == 2 ? "btn btn-primary p-3 w-100" : "btn btn-dark p-3 w-100"} onClick={() => navigate("/library/actors")}>
+                    <button className={tab === 2 ? "btn btn-primary p-3 w-100" : "btn btn-dark p-3 w-100"} onClick={() => navigate("/library/actors")}>
                         Actors
                     </button>
-                    <button className={index == 3 ? "btn btn-primary p-3 w-100" : "btn btn-dark p-3 w-100"} onClick={() => navigate("/library/items")}>
+                    <button className={tab === 3 ? "btn btn-primary p-3 w-100" : "btn btn-dark p-3 w-100"} onClick={() => navigate("/library/items")}>
                         Items
                     </button>
                 </div>

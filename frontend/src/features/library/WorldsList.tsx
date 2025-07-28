@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { WorldResponse } from "@/apis/_schemas";
 import { useNavigate } from "react-router-dom";
 import { worlds_all_get } from "@/apis/library_api";
+import { Link } from "react-router-dom";
 
 type WorldsListProps = {
     numResults?: number;
@@ -25,8 +26,7 @@ const WorldsList = ({ numResults }: WorldsListProps) => {
         }
     }
 
-    useState(() => {
-
+    useEffect(() => {
         fetchWorlds();
     }, []);
 
@@ -59,7 +59,7 @@ const WorldsList = ({ numResults }: WorldsListProps) => {
             ) : (
                 <div className="d-grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))" }}>
                     {worlds.slice(0, numResults).map((world, i) => (
-                        <a href={`/details/world/${world.id}`} key={i} className="bg-dark text-decoration-none text-light rounded-3 p-4">
+                        <Link to={`/details/world/${world.id}`} key={i} className="bg-dark text-decoration-none text-light rounded-3 p-4">
                             <h4 className="text-center">{world.name}</h4>
                             <hr className="mx-5 my-2 text-light" />
                             <div className="text-start d-flex flex-column">
@@ -67,7 +67,7 @@ const WorldsList = ({ numResults }: WorldsListProps) => {
                                 <p>Creator: {world.creator.username}</p>
                                 <p># Context Cards</p>
                             </div>
-                        </a>
+                        </Link>
                     ))}
                 </div>
             )}

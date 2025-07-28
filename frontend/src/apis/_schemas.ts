@@ -38,6 +38,7 @@ export interface WorldResponse {
 export interface CampaignPayload {
     name: string;
     description?: string;
+    world_id?: string;
     is_public?: boolean;
     context?: Record<string, any>;
     settings?: Record<string, any>;

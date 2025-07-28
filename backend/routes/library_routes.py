@@ -41,7 +41,7 @@ def world_get(id: str, current_user: User = Depends(get_current_user)):
 @router.post("/world/{id}", response_model=WorldResponse)
 def world_post(id: str, world_payload: WorldPayload, current_user: User = Depends(get_current_user)):
     # Validate and create the world
-    world = world_payload.to_model()
+    world = world_payload.to_model("EMPTY")
     
     if id == "new":
         world.creator_id = current_user.id
@@ -60,3 +60,50 @@ def world_post(id: str, world_payload: WorldPayload, current_user: User = Depend
             raise HTTPException(status_code=400, detail="Failed to update world")
         
     return WorldResponse.from_model(world)
+
+@router.get("/campaigns", response_model=list[CampaignResponse])
+def all_campaigns(current_user: User = Depends(get_current_user)):
+    campaigns = campaigns_manager.get_campaigns_by_user(current_user.id)
+    print(len(campaigns), "campaigns found for user", current_user.id)
+    return [CampaignResponse.from_model(campaign) for campaign in campaigns]
+
+@router.get("/campaign/{id}", response_model=CampaignResponse)
+def campaign_get(id: str, current_user: User = Depends(get_current_user)):
+    if id == "new":
+        default_campaign = Campaign(
+            name="Default Campaign",
+            description="This is the default campaign created with your world.",
+            creator_id=current_user.id,
+            is_public=False
+        )
+
+        return CampaignResponse.from_model(default_campaign)
+    else:
+        campaign = campaigns_manager.get_campaign(id)
+        if not campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        return CampaignResponse.from_model(campaign)
+
+@router.post("/campaign/{id}", response_model=CampaignResponse)
+def campaign_post(id: str, campaign_payload: CampaignPayload, current_user: User = Depends(get_current_user)):
+    # Validate and create the campaign
+    campaign = campaign_payload.to_model("EMPTY")
+    
+    if id == "new":
+        campaign.creator_id = current_user.id
+        
+        if not campaigns_manager.add_campaign(campaign):
+            raise HTTPException(status_code=400, detail="Failed to create campaign")
+    else:
+        existing_campaign = campaigns_manager.get_campaign(id)
+        if not existing_campaign:
+            raise HTTPException(status_code=404, detail="Campaign not found")
+        
+        campaign.id = existing_campaign.id
+        campaign.creator_id = existing_campaign.creator_id
+        
+        if not campaigns_manager.update_campaign(campaign):
+            raise HTTPException(status_code=400, detail="Failed to update campaign")
+        
+    return CampaignResponse.from_model(campaign)
+
