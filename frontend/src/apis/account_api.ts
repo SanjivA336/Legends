@@ -1,5 +1,5 @@
 import { GET_ENDPOINT, POST_ENDPOINT } from "./_api_core";
-import type { UserResponse, UserPayload } from "./_schemas";
+import type { UserPayload, UserResponse } from "./_schemas";
 
 // === Endpoints ===
 export async function account_get() {
@@ -7,15 +7,17 @@ export async function account_get() {
 }
 
 export async function profile_update(username: string) {
-    return POST_ENDPOINT<UserPayload, null>('/account', {
-        username
-    });
+    const payload: UserPayload = { 
+        username: username
+    };
+    return POST_ENDPOINT<UserPayload, null>('/account/profile', payload);
 }
 
-export async function security_update(email: string, password: string, password_new?: string) {
-    return POST_ENDPOINT<UserPayload, null>('/account', {
-        email,
-        password,
-        password_new
-    });
+export async function security_update(email: string, password_current: string, password_new: string) {
+    const payload: UserPayload = { 
+        email: email, 
+        password_current: password_current, 
+        password_new: password_new 
+    };
+    return POST_ENDPOINT<UserPayload, null>('/account', payload);
 }

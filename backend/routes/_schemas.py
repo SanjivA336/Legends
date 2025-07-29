@@ -1,437 +1,720 @@
 from datetime import datetime, timezone
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List, Dict, Any
 from backend.models import *
 
-# Payload: Client (frontend) to Server (backend)
-# Response: Server (backend) to Client (frontend)
+# === Config ===
+EMPTY_STRING = ""
+
 
 # === Users & Core Entities ===
-class UserSchema(BaseDocument):
+
+# --- Payload: all optional fields, no from_model ---
+class UserPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password_current: Optional[str] = None
+    password_new: Optional[str] = None
+
+    def to_model(self) -> User:
+        return User(
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            username=self.username or EMPTY_STRING,
+            email=self.email or EMPTY_STRING,
+            password_hash=EMPTY_STRING,
+        )
+
+
+# --- Response: fields required, from_model included, no to_model ---
+class UserResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     username: str
     email: EmailStr
-    password_current: Optional[str]
-    password_new: Optional[str]
+    password_current: Optional[str] = None
+    password_new: Optional[str] = None
 
-    def to_model(self):
-        return User(
-            username=self.username,
-            email=self.email,
-            password_hash="N/A"
-        )
-        
     @staticmethod
-    def from_model(model: User):
-        schema = UserSchema(
+    def from_model(model: User) -> "UserResponse":
+        sch = UserResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
             username=model.username,
             email=model.email,
             password_current=None,
-            password_new=None
+            password_new=None,
         )
-        schema.id = model.id
-        return schema
+        return sch
 
-class WorldSchema(BaseDocument):
-    name: str
-    description: Optional[str]
-    creator: 'UserSchema'
-    contexts: List['ContextSchema']
-    settings: WorldSetting
-    
-    def to_model(self):
+# === World ===
+
+class WorldPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    creator: Optional[UserPayload] = None
+    contexts: Optional[List['ContextPayload']] = None
+    settings: Optional[WorldSetting] = None
+
+    def to_model(self) -> World:
         return World(
-            name=self.name,
-            description=self.description or "",
-            creator_id=self.creator.id,
-            context_ids=[context.id for context in self.contexts],
-            settings=self.settings
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            name=self.name or EMPTY_STRING,
+            description=self.description or EMPTY_STRING,
+            creator_id=self.creator.id or EMPTY_STRING if self.creator else EMPTY_STRING,
+            context_ids=[c.id for c in self.contexts if c.id is not None] if self.contexts else [],
+            settings=self.settings or WorldSetting(is_public=False)
         )
-        
+
+
+class WorldResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    name: str
+    description: Optional[str] = None
+    creator: UserResponse
+    contexts: List['ContextResponse']
+    settings: WorldSetting
+
     @staticmethod
-    def from_model(model: World):
+    def from_model(model: World) -> "WorldResponse":
         creator = model.get_creator()
         contexts = model.get_context()
-        settings = model.settings
-        
-        schema = WorldSchema(
+        sch = WorldResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
             name=model.name,
-            description=model.description or "",
-            creator=UserSchema.from_model(creator),
-            contexts=[ContextSchema.from_model(context) for context in contexts],
-            settings=settings
+            description=model.description,
+            creator=UserResponse.from_model(creator),
+            contexts=[ContextResponse.from_model(c) for c in contexts],
+            settings=model.settings,
         )
-        schema.id = model.id
-        return schema
+        return sch
 
-class CampaignSchema(BaseDocument):
-    name: str
-    description: Optional[str]
-    creator: 'UserSchema'
-    world: Optional['WorldSchema'] = None
-    contexts: List['ContextSchema'] = Field(default_factory=list)
-    settings: WorldSetting
-    members: List['MemberSchema'] = Field(default_factory=list)
-    eras: List['EraSchema'] = Field(default_factory=list)
 
-    def to_model(self):
+# === Campaign ===
+
+class CampaignPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    creator: Optional[UserPayload] = None
+    world: Optional[WorldPayload] = None
+    contexts: Optional[List['ContextPayload']] = None
+    settings: Optional[WorldSetting] = None
+    members: Optional[List['MemberPayload']] = None
+    eras: Optional[List['EraPayload']] = None
+
+    def to_model(self) -> Campaign:
         return Campaign(
-            name=self.name,
-            description=self.description or "",
-            creator_id=self.creator.id,
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            name=self.name or EMPTY_STRING,
+            description=self.description,
+            creator_id=self.creator.id or EMPTY_STRING if self.creator else EMPTY_STRING,
             world_id=self.world.id if self.world else None,
-            context_ids=[context.id for context in self.contexts],
-            settings=self.settings,
-            member_ids=[member.id for member in self.members],
-            era_ids=[era.id for era in self.eras]
+            context_ids=[c.id for c in self.contexts if c.id is not None] if self.contexts else [],
+            settings=self.settings or WorldSetting(is_public=False),
+            member_ids=[m.id for m in self.members if m.id is not None] if self.members else [],
+            era_ids=[e.id for e in self.eras if e.id is not None] if self.eras else []
         )
-        
+
+
+class CampaignResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    name: str
+    description: Optional[str] = None
+    creator: UserResponse
+    world: Optional[WorldResponse] = None
+    contexts: List['ContextResponse']
+    settings: WorldSetting
+    members: List['MemberResponse']
+    eras: List['EraResponse']
+
     @staticmethod
-    def from_model(model: Campaign):
+    def from_model(model: Campaign) -> "CampaignResponse":
         creator = model.get_creator()
         world = model.get_world()
         contexts = model.get_context()
-        settings = model.settings
         members = model.get_members()
         eras = model.get_eras()
 
-        schema = CampaignSchema(
+        sch = CampaignResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
             name=model.name,
-            description=model.description or "",
-            creator=UserSchema.from_model(creator),
-            world=WorldSchema.from_model(world) if world else None,
-            contexts=[ContextSchema.from_model(context) for context in contexts],
-            settings=settings,
-            members=[MemberSchema.from_model(member) for member in members],
-            eras=[EraSchema.from_model(era) for era in eras]
+            description=model.description,
+            creator=UserResponse.from_model(creator),
+            world=WorldResponse.from_model(world) if world else None,
+            contexts=[ContextResponse.from_model(c) for c in contexts],
+            settings=model.settings,
+            members=[MemberResponse.from_model(m) for m in members],
+            eras=[EraResponse.from_model(e) for e in eras],
         )
-        
-        schema.id = model.id
-        return schema
+        return sch
 
-# === Game Structure ===
-class MemberSchema(BaseDocument):
-    user: Optional['UserSchema']
-    campaign: 'CampaignSchema'
-    role: str
-    status: str = "active"
-    sleeve: Optional['ObjectSchema'] = None
-    
-    def to_model(self):
+
+# === Member ===
+
+class MemberPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    user: Optional[UserPayload] = None
+    campaign: Optional[CampaignPayload] = None
+    role: Optional[str] = None
+    status: Optional[str] = None
+    sleeve: Optional['ObjectPayload'] = None
+
+    def to_model(self) -> Member:
         return Member(
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
             user_id=self.user.id if self.user else None,
-            campaign_id=self.campaign.id,
-            role=self.role,
-            status=self.status,
+            campaign_id=self.campaign.id or EMPTY_STRING if self.campaign else EMPTY_STRING,
+            role=self.role or EMPTY_STRING,
+            status=self.status or "active",
             sleeve_id=self.sleeve.id if self.sleeve else None
         )
-        
+
+
+class MemberResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    user: Optional[UserResponse]
+    campaign: CampaignResponse
+    role: str
+    status: str
+    sleeve: Optional['ObjectResponse']
+
     @staticmethod
-    def from_model(model: Member):
+    def from_model(model: Member) -> "MemberResponse":
         user = model.get_user()
         campaign = model.get_campaign()
         sleeve = model.get_sleeve()
 
-        schema = MemberSchema(
-            user=UserSchema.from_model(user) if user else None,
-            campaign=CampaignSchema.from_model(campaign),
+        sch = MemberResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            user=UserResponse.from_model(user) if user else None,
+            campaign=CampaignResponse.from_model(campaign),
             role=model.role,
             status=model.status,
-            sleeve=ObjectSchema.from_model(sleeve) if sleeve else None
+            sleeve=ObjectResponse.from_model(sleeve) if sleeve else None
         )
-        
-        schema.id = model.id
-        return schema
+        return sch
 
-class ContextSchema(BaseDocument):
+
+# === Context ===
+
+class ContextPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    name: Optional[str] = None
+    type: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+
+    def to_model(self) -> Context:
+        return Context(
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            name=self.name or EMPTY_STRING,
+            type=self.type or EMPTY_STRING,
+            data=self.data or {},
+        )
+
+
+class ContextResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     name: str
     type: str
-    data: Dict[str, Any] = Field(default_factory=dict)
-    
-    def to_model(self):
-        return Context(
-            name=self.name,
-            type=self.type,
-            data=self.data
-        )
-        
+    data: Dict[str, Any]
+
     @staticmethod
-    def from_model(model: Context):
-        schema = ContextSchema(
+    def from_model(model: Context) -> "ContextResponse":
+        sch = ContextResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
             name=model.name,
             type=model.type,
-            data=model.data
+            data=model.data,
         )
-        schema.id = model.id
-        return schema
+        return sch
 
-# === Blueprint System ===
-class BlueprintSchema(BaseDocument):
-    name: str
-    description: Optional[str]
-    creator: 'UserSchema'
-    is_public: bool = False
-    is_developer: bool = False
-    fields: List[CustomField] # fields with default values
-    
-    def to_model(self):
+
+# === Blueprint ===
+class BlueprintPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    creator: Optional[UserPayload] = None
+    is_public: Optional[bool] = None
+    is_developer: Optional[bool] = None
+    fields: Optional[List[CustomField]] = None
+
+    def to_model(self) -> Blueprint:
         return Blueprint(
-            name=self.name,
-            description=self.description or "",
-            creator_id=self.creator.id,
-            is_public=self.is_public,
-            is_developer=self.is_developer,
-            fields=[field for field in self.fields]
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            name=self.name or EMPTY_STRING,
+            description=self.description,
+            creator_id=self.creator.id or EMPTY_STRING if self.creator else EMPTY_STRING,
+            is_public=self.is_public or False,
+            is_developer=self.is_developer or False,
+            fields=self.fields or [],
         )
-        
-    @staticmethod
-    def from_model(model: Blueprint):
-        creator = model.get_creator()
-        fields = [field for field in model.fields]
 
-        schema = BlueprintSchema(
+
+class BlueprintResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    name: str
+    description: Optional[str] = None
+    creator: UserResponse
+    is_public: bool
+    is_developer: bool
+    fields: List[CustomField]
+
+    @staticmethod
+    def from_model(model: Blueprint) -> "BlueprintResponse":
+        creator = model.get_creator()
+        sch = BlueprintResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
             name=model.name,
-            description=model.description or "",
-            creator=UserSchema.from_model(creator),
+            description=model.description,
+            creator=UserResponse.from_model(creator),
             is_public=model.is_public,
             is_developer=model.is_developer,
-            fields=fields
+            fields=model.fields,
         )
-        
-        schema.id = model.id
-        return schema
+        return sch
 
-class ObjectSchema(BaseDocument):
-    name: str
-    description: Optional[str]
-    creator: 'UserSchema'
-    blueprint: 'BlueprintSchema'
-    fields: List[CustomField] # fields with instance values
-    
-    def to_model(self):
+
+# === Object ===
+
+class ObjectPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    creator: Optional[UserPayload] = None
+    blueprint: Optional[BlueprintPayload] = None
+    fields: Optional[List[CustomField]] = None
+
+    def to_model(self) -> Object:
         return Object(
-            name=self.name,
-            description=self.description or "",
-            creator_id=self.creator.id,
-            blueprint_id=self.blueprint.id,
-            fields=[field for field in self.fields]
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            name=self.name or EMPTY_STRING,
+            description=self.description,
+            creator_id=self.creator.id or EMPTY_STRING if self.creator else EMPTY_STRING,
+            blueprint_id=self.blueprint.id or EMPTY_STRING if self.blueprint else EMPTY_STRING,
+            fields=self.fields or [],
         )
-        
+
+
+class ObjectResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    name: str
+    description: Optional[str] = None
+    creator: UserResponse
+    blueprint: BlueprintResponse
+    fields: List[CustomField]
+
     @staticmethod
-    def from_model(model: Object):
+    def from_model(model: Object) -> "ObjectResponse":
         creator = model.get_creator()
         blueprint = model.get_blueprint()
-        fields = [field for field in model.fields]
 
-        schema = ObjectSchema(
+        sch = ObjectResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
             name=model.name,
-            description=model.description or "",
-            creator=UserSchema.from_model(creator),
-            blueprint=BlueprintSchema.from_model(blueprint),
-            fields=fields
+            description=model.description,
+            creator=UserResponse.from_model(creator),
+            blueprint=BlueprintResponse.from_model(blueprint),
+            fields=model.fields,
         )
-        
-        schema.id = model.id
-        return schema
+        return sch
+
 
 # === Narrative System ===
-class ObjectiveSchema(BaseDocument):
+
+class ObjectivePayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    name: Optional[str] = None
+    task: Optional[str] = None
+    progress: Optional[int] = None
+    children: Optional[List['ObjectivePayload']] = None
+    parent: Optional['ObjectivePayload'] = None
+
+    def to_model(self) -> Objective:
+        return Objective(
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            name=self.name or EMPTY_STRING,
+            task=self.task or EMPTY_STRING,
+            progress=self.progress or 0,
+            children_ids=[child.id for child in self.children if child.id is not None] if self.children else [],
+            parent_id=self.parent.id if self.parent else None,
+        )
+
+
+class ObjectiveResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
     name: str
     task: str
     progress: int
-    children: List['ObjectiveSchema'] = Field(default_factory=list)
-    parent: Optional['ObjectiveSchema'] = None
-    
-    def to_model(self):
-        return Objective(
-            name=self.name,
-            task=self.task,
-            progress=self.progress,
-            children_ids=[child.id for child in self.children],
-            parent_id=self.parent.id if self.parent else None
-        )
-        
+    children: List['ObjectiveResponse']
+    parent: Optional['ObjectiveResponse']
+
     @staticmethod
-    def from_model(model: Objective):
+    def from_model(model: Objective) -> "ObjectiveResponse":
         children = model.get_children()
         parent = model.get_parent()
-
-        schema = ObjectiveSchema(
+        sch = ObjectiveResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
             name=model.name,
             task=model.task,
             progress=model.progress,
-            children=[ObjectiveSchema.from_model(child) for child in children],
-            parent=ObjectiveSchema.from_model(parent) if parent else None
+            children=[ObjectiveResponse.from_model(c) for c in children],
+            parent=ObjectiveResponse.from_model(parent) if parent else None,
         )
-        
-        schema.id = model.id
-        return schema
-    
+        return sch
 
-class EraSchema(BaseDocument):
-    campaign: 'CampaignSchema'
-    name: str
-    description: Optional[str]
-    objective: 'ObjectiveSchema'
-    chapters: List['ChapterSchema'] = Field(default_factory=list)
-    
-    def to_model(self):
+
+class EraPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    campaign: Optional[CampaignPayload] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    objective: Optional[ObjectivePayload] = None
+    chapters: Optional[List['ChapterPayload']] = None
+
+    def to_model(self) -> Era:
         return Era(
-            campaign_id=self.campaign.id,
-            name=self.name,
-            description=self.description or "",
-            objective_id=self.objective.id,
-            chapter_ids=[chapter.id for chapter in self.chapters]
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            campaign_id=self.campaign.id or EMPTY_STRING if self.campaign else EMPTY_STRING,
+            name=self.name or EMPTY_STRING,
+            description=self.description,
+            objective_id=self.objective.id or EMPTY_STRING if self.objective else EMPTY_STRING,
+            chapter_ids=[c.id for c in self.chapters if c.id is not None] if self.chapters else [],
         )
-        
+
+
+class EraResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    campaign: CampaignResponse
+    name: str
+    description: Optional[str] = None
+    objective: ObjectiveResponse
+    chapters: List['ChapterResponse']
+
     @staticmethod
-    def from_model(model: Era):
+    def from_model(model: Era) -> "EraResponse":
         campaign = model.get_campaign()
         objective = model.get_objective()
         chapters = model.get_chapters()
 
-        schema = EraSchema(
-            campaign=CampaignSchema.from_model(campaign),
+        sch = EraResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            campaign=CampaignResponse.from_model(campaign),
             name=model.name,
-            description=model.description or "",
-            objective=ObjectiveSchema.from_model(objective),
-            chapters=[ChapterSchema.from_model(chapter) for chapter in chapters]
+            description=model.description,
+            objective=ObjectiveResponse.from_model(objective),
+            chapters=[ChapterResponse.from_model(c) for c in chapters],
         )
-        
-        schema.id = model.id
-        return schema
+        return sch
 
-class ChapterSchema(BaseDocument):
-    era: 'EraSchema'
-    name: str
-    description: Optional[str]
-    objective: 'ObjectiveSchema'
-    encounters: List['EncounterSchema'] = Field(default_factory=list)
-    
-    def to_model(self):
+
+class ChapterPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    era: Optional[EraPayload] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    objective: Optional[ObjectivePayload] = None
+    encounters: Optional[List['EncounterPayload']] = None
+
+    def to_model(self) -> Chapter:
         return Chapter(
-            era_id=self.era.id,
-            name=self.name,
-            description=self.description or "",
-            objective_id=self.objective.id,
-            encounter_ids=[encounter.id for encounter in self.encounters]
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            era_id=self.era.id or EMPTY_STRING if self.era else EMPTY_STRING,
+            name=self.name or EMPTY_STRING,
+            description=self.description,
+            objective_id=self.objective.id or EMPTY_STRING if self.objective else EMPTY_STRING,
+            encounter_ids=[e.id for e in self.encounters if e.id is not None] if self.encounters else [],
         )
-        
+
+
+class ChapterResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    era: EraResponse
+    name: str
+    description: Optional[str] = None
+    objective: ObjectiveResponse
+    encounters: List['EncounterResponse']
+
     @staticmethod
-    def from_model(model: Chapter):
+    def from_model(model: Chapter) -> "ChapterResponse":
         era = model.get_era()
         objective = model.get_objective()
         encounters = model.get_encounters()
 
-        schema = ChapterSchema(
-            era=EraSchema.from_model(era),
+        sch = ChapterResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            era=EraResponse.from_model(era),
             name=model.name,
-            description=model.description or "",
-            objective=ObjectiveSchema.from_model(objective),
-            encounters=[EncounterSchema.from_model(encounter) for encounter in encounters]
+            description=model.description,
+            objective=ObjectiveResponse.from_model(objective),
+            encounters=[EncounterResponse.from_model(c) for c in encounters],
         )
-        
-        schema.id = model.id
-        return schema
+        return sch
 
-class EncounterSchema(BaseDocument):
-    chapter: 'ChapterSchema'
-    name: str
-    description: Optional[str]
-    actions: List['ActionSchema'] = Field(default_factory=list)
-    
-    def to_model(self):
+
+class EncounterPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    chapter: Optional[ChapterPayload] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    actions: Optional[List['ActionPayload']] = None
+
+    def to_model(self) -> Encounter:
         return Encounter(
-            chapter_id=self.chapter.id,
-            name=self.name,
-            description=self.description or "",
-            action_ids=[action.id for action in self.actions]
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            chapter_id=self.chapter.id or EMPTY_STRING if self.chapter else EMPTY_STRING,
+            name=self.name or EMPTY_STRING,
+            description=self.description,
+            action_ids=[a.id for a in self.actions if a.id is not None] if self.actions else [],
         )
-        
+
+
+class EncounterResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    chapter: ChapterResponse
+    name: str
+    description: Optional[str] = None
+    actions: List['ActionResponse']
+
     @staticmethod
-    def from_model(model: Encounter):
+    def from_model(model: Encounter) -> "EncounterResponse":
         chapter = model.get_chapter()
         actions = model.get_actions()
 
-        schema = EncounterSchema(
-            chapter=ChapterSchema.from_model(chapter),
+        sch = EncounterResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            chapter=ChapterResponse.from_model(chapter),
             name=model.name,
-            description=model.description or "",
-            actions=[ActionSchema.from_model(action) for action in actions]
+            description=model.description,
+            actions=[ActionResponse.from_model(c) for c in actions],
         )
-        
-        schema.id = model.id
-        return schema
+        return sch
 
-# === Gameplay & Events ===
 
-class ActionSchema(BaseDocument):
-    encounter: 'EncounterSchema'
-    owner_member: 'MemberSchema'
-    character_object: Optional['ObjectSchema'] = None
+# === Action & Events ===
+
+class ActionPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    encounter: Optional[EncounterPayload] = None
+    owner_member: Optional[MemberPayload] = None
+    character_object: Optional[ObjectPayload] = None
+    content: Optional[str] = None
+    type: Optional[str] = None
+    dm_response: Optional[str] = None
+    minigame: Optional['MinigameResultPayload'] = None
+
+    def to_model(self) -> Action:
+        return Action(
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            encounter_id=self.encounter.id or EMPTY_STRING if self.encounter else EMPTY_STRING,
+            owner_member_id=self.owner_member.id or EMPTY_STRING if self.owner_member else EMPTY_STRING,
+            character_object_id=self.character_object.id or EMPTY_STRING if self.character_object else EMPTY_STRING,
+            content=self.content or EMPTY_STRING,
+            type=self.type or EMPTY_STRING,
+            dm_response=self.dm_response,
+            minigame_id=self.minigame.id or EMPTY_STRING if self.minigame else EMPTY_STRING,
+        )
+
+
+class ActionResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    encounter: EncounterResponse
+    owner_member: MemberResponse
+    character_object: Optional[ObjectResponse] = None
     content: str
     type: str
-    dm_response: Optional[str]
-    minigame: Optional['MinigameResultSchema'] = None
-    
-    def to_model(self):
-        return Action(
-            encounter_id=self.encounter.id,
-            owner_member_id=self.owner_member.id,
-            character_object_id=self.character_object.id if self.character_object else None,
-            content=self.content,
-            type=self.type,
-            dm_response=self.dm_response,
-            minigame_id=self.minigame.id if self.minigame else None
-        )
-        
+    dm_response: Optional[str] = None
+    minigame: Optional['MinigameResultResponse'] = None
+
     @staticmethod
-    def from_model(model: Action):
+    def from_model(model: Action) -> "ActionResponse":
         encounter = model.get_encounter()
         owner_member = model.get_owner()
         character_object = model.get_character()
         minigame = model.get_minigame()
 
-        schema = ActionSchema(
-            encounter=EncounterSchema.from_model(encounter),
-            owner_member=MemberSchema.from_model(owner_member),
-            character_object=ObjectSchema.from_model(character_object) if character_object else None,
+        sch = ActionResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            encounter=EncounterResponse.from_model(encounter),
+            owner_member=MemberResponse.from_model(owner_member),
+            character_object=ObjectResponse.from_model(character_object) if character_object else None,
             content=model.content,
             type=model.type,
             dm_response=model.dm_response,
-            minigame=MinigameResultSchema.from_model(minigame) if minigame else None
+            minigame=MinigameResultResponse.from_model(minigame) if minigame else None,
         )
-        
-        schema.id = model.id
-        return schema
+        return sch
 
-class MinigameResultSchema(BaseDocument):
-    action: 'ActionSchema'
+
+class MinigameResultPayload(BaseModel):
+    id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    action: Optional[ActionPayload] = None
+    type: Optional[str] = None
+    result: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+    completed_at: Optional[datetime] = None
+
+    def to_model(self) -> MinigameResult:
+        return MinigameResult(
+            id=self.id or EMPTY_STRING,
+            created_at=self.created_at or datetime.now(timezone.utc),
+            updated_at=self.updated_at or datetime.now(timezone.utc),
+            action_id=self.action.id or EMPTY_STRING if self.action else EMPTY_STRING,
+            type=self.type or EMPTY_STRING,
+            result=self.result or EMPTY_STRING,
+            details=self.details or {},
+            completed_at=self.completed_at or datetime.now(timezone.utc),
+        )
+
+
+class MinigameResultResponse(BaseModel):
+    id: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    action: ActionResponse
     type: str
     result: str
-    details: Dict[str, Any] = Field(default_factory=dict)
-    completed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    details: Dict[str, Any]
+    completed_at: datetime
 
-    def to_model(self):
-        return MinigameResult(
-            action_id=self.action.id,
-            type=self.type,
-            result=self.result,
-            details=self.details,
-            completed_at=self.completed_at
-        )
-        
     @staticmethod
-    def from_model(model: MinigameResult):
+    def from_model(model: MinigameResult) -> "MinigameResultResponse":
         action = model.get_action()
-
-        schema = MinigameResultSchema(
-            action=ActionSchema.from_model(action),
+        sch = MinigameResultResponse(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            action=ActionResponse.from_model(action),
             type=model.type,
             result=model.result,
             details=model.details,
-            completed_at=model.completed_at
+            completed_at=model.completed_at,
         )
-        
-        schema.id = model.id
-        return schema
-    
+        return sch
+
+
+# Resolve forward refs
+UserPayload.model_rebuild()
+UserResponse.model_rebuild()
+WorldPayload.model_rebuild()
+WorldResponse.model_rebuild()
+CampaignPayload.model_rebuild()
+CampaignResponse.model_rebuild()
+MemberPayload.model_rebuild()
+MemberResponse.model_rebuild()
+ContextPayload.model_rebuild()
+ContextResponse.model_rebuild()
+BlueprintPayload.model_rebuild()
+BlueprintResponse.model_rebuild()
+ObjectPayload.model_rebuild()
+ObjectResponse.model_rebuild()
+ObjectivePayload.model_rebuild()
+ObjectiveResponse.model_rebuild()
+EraPayload.model_rebuild()
+EraResponse.model_rebuild()
+ChapterPayload.model_rebuild()
+ChapterResponse.model_rebuild()
+EncounterPayload.model_rebuild()
+EncounterResponse.model_rebuild()
+ActionPayload.model_rebuild()
+ActionResponse.model_rebuild()
+MinigameResultPayload.model_rebuild()
+MinigameResultResponse.model_rebuild()

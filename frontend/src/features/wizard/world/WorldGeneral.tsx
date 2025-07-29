@@ -1,12 +1,12 @@
-import type { WorldPayload } from "@apis/_schemas";
+import type { WorldResponse } from "@apis/_schemas";
 
 import TextField from "@/components/modular/TextField";
 import LongTextField from "@/components/modular/LongTextField";
 
 
 type WorldGeneralProps = {
-    world: WorldPayload;
-    setWorld: (world: WorldPayload) => void;
+    world: WorldResponse;
+    setWorld: (world: WorldResponse) => void;
 };
 
 export default function WorldGeneral({ world, setWorld }: WorldGeneralProps) {

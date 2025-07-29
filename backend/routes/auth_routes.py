@@ -4,7 +4,7 @@ from passlib.context import CryptContext # type: ignore
 from jose import jwt, JWTError, ExpiredSignatureError # type: ignore
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-from backend.database.users_database import users_manager
+from backend.database.repos import users_repo
 from backend.models import User
 from backend.routes._schemas import UserPayload, UserResponse
 
@@ -98,19 +98,19 @@ def save_tokens(response: Response, access_token: str, refresh_token: str):
     
 # === Endpoints ===
 @router.post("/login")
-def login(creds: UserPayload, response: Response):
+def login(payload: UserPayload, response: Response):
     """
     Authenticate user and return access and refresh tokens.
     The user must provide valid email and password.
     """
-    if( not creds.email or not creds.password):
+    if( not payload.email or not payload.password_current):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email and password are required.")
     
-    user = users_manager.get_user_by_email(creds.email.strip().lower())
+    user = users_repo.query([('email','==', payload.email.strip().lower())])[0]
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email does not exist.")
     
-    if not verify_password(creds.password, user.password_hash):
+    if not verify_password(payload.password_current, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect password.")
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -121,24 +121,24 @@ def login(creds: UserPayload, response: Response):
     save_tokens(response, access_token, refresh_token)
     
 @router.post("/register")
-def register(creds: UserPayload, response: Response):
+def register(payload: UserPayload, response: Response):
     """
     Register a new user and return access and refresh tokens.
     The user must provide a unique username and email.
     """
-    if not creds.username or not creds.email or not creds.password:
+    if not payload.username or not payload.email or not payload.password_current:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username, email, and password are required.")
-    
-    if users_manager.get_user_by_email(creds.email.strip().lower()):
+
+    if users_repo.query([('email','==', payload.email.strip().lower())])[0]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
     
     user = User(
-        username=creds.username,
-        email=creds.email,
-        password_hash=hash_password(creds.password)
+        username=payload.username,
+        email=payload.email,
+        password_hash=hash_password(payload.password_current)
     )
-    
-    id = users_manager.add_user(user)
+
+    id = users_repo.add(user)
     if not id:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="User registration failed")
     
@@ -166,7 +166,7 @@ def refresh_token(response: Response, refresh_token: str = Cookie(None)):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid refresh token")
     
-    user = users_manager.get_user(user_id)
+    user = users_repo.get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -202,15 +202,11 @@ def authenticate(response: Response, access_token: str = Cookie(None)):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid access token")
     
-    user = users_manager.get_user(user_id)
+    user = users_repo.get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    return UserResponse(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-    )
+    return UserResponse.from_model(user)
 
 # === Other ===
 from fastapi.security import OAuth2PasswordBearer
@@ -230,7 +226,7 @@ def get_current_user(access_token: str = Cookie(None)):
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid access token")
     
-    user = users_manager.get_user(user_id)
+    user = users_repo.get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     

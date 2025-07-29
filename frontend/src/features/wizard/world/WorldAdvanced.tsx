@@ -14,8 +14,8 @@ export default function WorldAdvanced({ world, setWorld }: WorldAdvancedProps) {
 
             <ToggleField
                 label="Is Public"
-                value={world.is_public || false}
-                setValue={(value) => setWorld({ ...world, is_public: value })}
+                value={world.settings?.is_public || false}
+                setValue={(value) => setWorld({ ...world, settings: { ...world.settings, is_public: value } })}
             />
 
         </div>

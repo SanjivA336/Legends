@@ -3,19 +3,21 @@ import type { UserPayload } from "./_schemas";
 
 
 // === Endpoints ===
-export async function login(email: string, password: string) {
-    return POST_ENDPOINT<UserPayload, null>('/login', {
-        email,
-        password,
-    });
+export async function login(email: string, password_current: string) {
+    const payload: UserPayload = { 
+        email: email, 
+        password_current: password_current
+    };
+    return POST_ENDPOINT<UserPayload, null>('/login', payload);
 }
 
-export async function register(username: string, email: string, password: string) {
-    return POST_ENDPOINT<UserPayload, null>('/register', {
-        username,
-        email,
-        password,
-    });
+export async function register(username: string, email: string, password_current: string) {
+    const payload: UserPayload = {
+        username: username,
+        email: email,
+        password_current: password_current,
+    };
+    return POST_ENDPOINT<UserPayload, null>('/register', payload);
 }
 
 export async function authenticate() {
