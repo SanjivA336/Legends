@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { login } from "@apis/auth_api";
-import TextField from "@/components/modular/TextField";
-import ToggleField from "@/components/modular/ToggleField";
-import ErrorBox from "@/components/modular/ErrorBox";
+import ShortTextField from "@/components/fields/ShortTextField";
+import MessageBox from "@/components/MessageBox";
 
 
 type LoginFormProps = {
@@ -44,7 +43,7 @@ export default function LoginForm({ toggleMode }: LoginFormProps) {
     return (
         <form className="w-100 text-center d-flex flex-column gap-2 align-items-center" onSubmit={handleSubmit}>
             <h2>Login</h2>
-            <TextField
+            <ShortTextField
                 value={email}
                 setValue={setEmail}
                 placeholder="Email"
@@ -52,23 +51,16 @@ export default function LoginForm({ toggleMode }: LoginFormProps) {
                 type="email"
                 label="Email"
                 required={true} />
-            <TextField
+            <ShortTextField
                 value={password}
                 setValue={setPassword}
                 placeholder="Password"
                 autoComplete="current-password"
-                type={showPassword ? "text" : "password"}
+                secure={true}
                 label="Password"
                 required={true} />
-            <ToggleField
-                value={showPassword}
-                setValue={setShowPassword}
-                label="Show Password"
-                type="checkbox"
-                required={false}
-                disabled={loading} />
 
-            <ErrorBox error={error} />
+            <MessageBox error={error} />
 
             <button className="w-50 bg-primary rounded-pill px-3 py-2 border-0 text-light" type="submit" disabled={loading}>
                 Login
@@ -77,7 +69,7 @@ export default function LoginForm({ toggleMode }: LoginFormProps) {
 
             <p>
                 Don't have an account?{" "}
-                <button className="bg-transparent p-0  m-0 text-primary border-0" type="button" onClick={toggleMode}>
+                <button className="bg-transparent p-0  m-0 text-primary border-0" onClick={toggleMode}>
                     Register here
                 </button>
             </p>

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { register } from "@apis/auth_api";
-import TextField from "@/components/modular/TextField";
-import ToggleField from "@/components/modular/ToggleField";
-import ErrorBox from "@/components/modular/ErrorBox";
+import ShortTextField from "@/components/fields/ShortTextField";
+import ToggleField from "@/components/fields/ToggleField";
+import MessageBox from "@/components/MessageBox";
 
 type RegisterFormProps = {
     toggleMode: () => void;
@@ -51,7 +51,7 @@ export default function RegisterForm({ toggleMode }: RegisterFormProps) {
     return (
         <form className="w-100 text-center d-flex flex-column gap-2 align-items-center" onSubmit={handleSubmit}>
             <h2>Register</h2>
-            <TextField
+            <ShortTextField
                 value={username}
                 setValue={setUsername}
                 placeholder="Username"
@@ -59,7 +59,7 @@ export default function RegisterForm({ toggleMode }: RegisterFormProps) {
                 type="text"
                 label="Username"
                 required={true} />
-            <TextField
+            <ShortTextField
                 value={email}
                 setValue={setEmail}
                 placeholder="Email"
@@ -67,7 +67,7 @@ export default function RegisterForm({ toggleMode }: RegisterFormProps) {
                 type="email"
                 label="Email"
                 required={true} />
-            <TextField
+            <ShortTextField
                 value={password}
                 setValue={setPassword}
                 placeholder="Password"
@@ -75,7 +75,7 @@ export default function RegisterForm({ toggleMode }: RegisterFormProps) {
                 type={showPassword ? "text" : "password"}
                 label="Password"
                 required={true} />
-            <TextField
+            <ShortTextField
                 value={confirm}
                 setValue={setConfirm}
                 placeholder="Confirm Password"
@@ -91,7 +91,7 @@ export default function RegisterForm({ toggleMode }: RegisterFormProps) {
                 required={false}
                 disabled={loading} />
 
-            <ErrorBox error={error} />
+            <MessageBox error={error} />
 
             <button className="w-50 bg-primary rounded-pill px-3 py-2 border-0 text-light" type="submit" disabled={loading}>
                 Register

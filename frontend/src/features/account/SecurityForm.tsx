@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { account_get, security_update } from "@apis/account_api"
-import TextField from "@/components/modular/TextField";
-import ToggleField from "@/components/modular/ToggleField";
-import ErrorBox from "@/components/modular/ErrorBox";
+import ShortTextField from "@/components/fields/ShortTextField";
+import ToggleField from "@/components/fields/ToggleField";
+import MessageBox from "@/components/MessageBox";
 
 export default function SecurityForm() {
     const [email, setEmail] = useState("");
@@ -56,7 +56,7 @@ export default function SecurityForm() {
     return (
         <form className="w-100 text-center d-flex flex-column gap-2 align-items-start" onSubmit={handleSubmit}>
             <h4>Communication</h4>
-            <TextField
+            <ShortTextField
                 label="Email"
                 value={newEmail}
                 setValue={setNewEmail}
@@ -65,7 +65,7 @@ export default function SecurityForm() {
                 type="email" />
 
             <h4 className="mt-3">Change Password</h4>
-            <TextField
+            <ShortTextField
                 label="Current Password"
                 value={currentPassword}
                 setValue={setCurrentPassword}
@@ -73,7 +73,7 @@ export default function SecurityForm() {
                 autoComplete="current-password"
                 type={showPassword ? "text" : "password"}
                 required={false} />
-            <TextField
+            <ShortTextField
                 label="New Password"
                 value={newPassword}
                 setValue={setNewPassword}
@@ -89,7 +89,7 @@ export default function SecurityForm() {
                 required={false}
                 disabled={loading} />
 
-            <ErrorBox error={error} />
+            <MessageBox error={error} />
 
             <div className="w-100 d-flex flex-row gap-2">
                 <button className="w-50 btn btn-outline-primary rounded-3 px-3 py-2" type="submit" disabled={loading}>

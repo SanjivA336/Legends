@@ -7,7 +7,7 @@ type HomeLayoutProps = {
 
 export default function BaseLayout({ children }: HomeLayoutProps) {
     return (
-        <div className="w-100 h-auto d-flex flex-column align-items-center bg-darkest text-light">
+        <div className="w-100 d-flex flex-column align-items-center bg-darkest text-light">
             {/* Navbar */}
             <Navbar />
 

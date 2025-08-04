@@ -23,11 +23,7 @@ def update_profile(payload: UserPayload, current_user: User = Depends(get_curren
     """
     Update the profile of the currently logged-in user.
     """
-    if payload.username:
-        current_user.username = payload.username.strip()
-        
-    if payload.email:
-        current_user.email = payload.email.strip()
+    current_user = payload.to_model(current_user)
 
     if payload.password_current and payload.password_new:
         if not verify_password(payload.password_current, current_user.password_hash):

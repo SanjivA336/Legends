@@ -5,7 +5,8 @@ import ProtectedRoute from "@components/ProtectedRoute";
 import { AuthProvider } from "@context/AuthContext";
 
 // === Error Pages ===
-import PageNotFound from "@pages/PageNotFound";
+import PageNotFound from "@/pages/error/PageNotFound";
+import RequestDenied from "@/pages/error/RequestDenied";
 
 // === Auth Pages ===
 import AuthPage from "@pages/AuthPage";
@@ -16,9 +17,9 @@ import HomePage from "@pages/HomePage";
 import AccountProfilePage from "@pages/account/AccountProfilePage";
 import AccountSecurityPage from "@pages/account/AccountSecurityPage";
 
-import WorldsPage from "@pages/library/WorldsPage";
+import LibraryPage from "@pages/library/LibraryPage";
 
-import WorldWizardPage from "@/pages/library/wizard/WorldWizardPage";
+import WorldWizardPage from "@pages/library/wizard/WorldWizardPage";
 
 export default function App() {
   return (
@@ -34,15 +35,21 @@ export default function App() {
             <Route path="/account/settings" element={<ProtectedRoute><AccountSecurityPage /></ProtectedRoute>} />
             <Route path="/account/*" element={<Navigate to="/account/profile" />} />
 
-            <Route path="/library/worlds" element={<ProtectedRoute><WorldsPage /></ProtectedRoute>} />
-            <Route path="/library/actors*" element={<Navigate to="/library/worlds" />} />
-            <Route path="/library/items*" element={<Navigate to="/library/worlds" />} />
+            <Route path="/library" element={<ProtectedRoute><LibraryPage /></ProtectedRoute>} />
+            <Route path="/library/worlds" element={<Navigate to="/library?tab=0" replace />} />
+            <Route path="/library/campaigns" element={<Navigate to="/library?tab=1" replace />} />
+            <Route path="/library/blueprints" element={<Navigate to="/library?tab=2" replace />} />
             <Route path="/library/*" element={<Navigate to="/library/worlds" />} />
 
             <Route path="/details/world/:id" element={<ProtectedRoute><WorldWizardPage /></ProtectedRoute>} />
+            <Route path="/details/campaign/:id" element={<Navigate to="/library/worlds" />} />
             <Route path="/details/*" element={<Navigate to="/library" />} />
 
-            <Route path="*" element={<PageNotFound />} />
+            <Route path="/session/:id/:role" element={<ProtectedRoute><WorldWizardPage /></ProtectedRoute>} />
+
+            <Route path="/403" element={<RequestDenied />} />
+            <Route path="/404" element={<PageNotFound />} />
+            <Route path="*" element={<Navigate to="/404" />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>

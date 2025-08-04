@@ -3,6 +3,9 @@ from typing import TypeVar, Generic, Type, List, Optional, Dict, Any
 from backend.models import BaseDocument
 from backend.database.firestore_wrapper import firestore_wrapper
 
+from datetime import datetime, timezone
+from uuid import uuid4
+
 T = TypeVar("T", bound=BaseDocument)
 
 class BaseRepo(Generic[T]):
@@ -15,9 +18,13 @@ class BaseRepo(Generic[T]):
         return self._db.get_document(self._collection, id, self._model_cls)
 
     def add(self, obj: T) -> Optional[str]:
+        obj.id = uuid4().hex
+        obj.created_at = datetime.now(timezone.utc)
+        obj.updated_at = datetime.now(timezone.utc)
         return self._db.add_document(self._collection, obj)
 
     def update(self, obj: T) -> bool:
+        obj.updated_at = datetime.now(timezone.utc)
         return self._db.update_document(self._collection, obj.id, obj.model_dump(exclude_unset=True))
 
     def delete(self, id: str) -> bool:

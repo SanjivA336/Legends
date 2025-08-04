@@ -17,32 +17,7 @@ $dark:      rgb(32, 30, 35);     // Dark backgrounds and text
 
 // === Register Theme Colors as Map ===
 // === Configurable mix percentages ===
-$bg-subtle-mix-pct: 85%;         // Background subtlety
-$border-subtle-mix-pct: 60%;     // Border subtlety
-$text-emphasis-mix-pct: 40%;     // Text emphasis strength
-
-// === Theme base colors ===
-$theme-colors: (
-    "primary":   $primary,
-    "secondary": $secondary,
-    "success":   $success,
-    "danger":    $danger,
-    "warning":   $warning,
-    "info":      $info,
-    "light":     $light,
-    "dark":      $dark
-);
-
-// === Subtle and Emphasis Maps ===
-$theme-variants: ();
-
-@each $name, $color in $theme-colors {
-    $theme-variants: map-merge($theme-variants, (
-        "#{$name}-bg-subtle": color.mix(white, $color, $bg-subtle-mix-pct),
-        "#{$name}-border-subtle": color.mix(white, $color, $border-subtle-mix-pct),
-        "#{$name}-text-emphasis": color.mix(black, $color, $text-emphasis-mix-pct)
-    ));
-}
+$bg-subtle-mix-pct: 5%;         // Background subtlety
 
 
 // === Grayscale Palette (Bootstrap defaults) ===
@@ -99,15 +74,35 @@ body, p, span, li, blockquote, dd, dt, th, td {
 }
 
 .bg-darkish {
-    background-color: color.mix(rgb(255, 255, 255), $dark, 25%);
+    background-color: color.mix(rgb(255, 255, 255), $dark, 10%);
 }
 
-.text-darker {
-    color: color.mix(black, $dark, 10%);
+.border-darker {
+    border-color: color.mix(black, $dark, 25%) !important;
 }
 
-.text-darkest {
-    color: color.mix(black, $dark, 20%);
+.border-darkest {
+    border-color: color.mix(black, $dark, 50%) !important;
+}
+
+.border-darkish {
+    border: solid color.mix(rgb(255, 255, 255), $dark, 10%) !important;
+}
+
+.bg-danger-subtle-dark {
+    background-color: color.mix($danger, $dark, $bg-subtle-mix-pct);
+}
+
+.bg-warning-subtle-dark {
+    background-color: color.mix($warning, $dark, $bg-subtle-mix-pct);
+}
+
+.bg-info-subtle-dark {
+    background-color: color.mix($info, $dark, $bg-subtle-mix-pct);
+}
+
+.bg-success-subtle-dark {
+    background-color: color.mix($success, $dark, $bg-subtle-mix-pct);
 }
 
 // === Import Bootstrap with overrides applied ===

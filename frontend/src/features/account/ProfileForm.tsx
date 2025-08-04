@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { account_get, profile_update } from "@apis/account_api"
-import TextField from "@/components/modular/TextField";
-import ErrorBox from "@/components/modular/ErrorBox";
+import ShortTextField from "@/components/fields/ShortTextField";
+import MessageBox from "@/components/MessageBox";
 
 export default function ProfileForm() {
     const [username, setUsername] = useState("");
@@ -54,7 +54,7 @@ export default function ProfileForm() {
     return (
         <form className="w-100 text-center d-flex flex-column gap-2 align-items-start" onSubmit={handleSubmit}>
             <h4>Display</h4>
-            <TextField
+            <ShortTextField
                 label="Username"
                 value={newUsername}
                 setValue={setNewUsername}
@@ -62,7 +62,7 @@ export default function ProfileForm() {
                 autoComplete="username"
                 type="text" />
 
-            <ErrorBox error={error} />
+            <MessageBox error={error} />
 
             <div className="w-100 d-flex flex-row gap-2">
                 <button className="w-50 btn btn-outline-primary rounded-3 px-3 py-2" type="submit" disabled={loading}>

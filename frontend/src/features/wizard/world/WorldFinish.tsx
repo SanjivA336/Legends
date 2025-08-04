@@ -1,45 +1,62 @@
-import type { WorldPayload } from "@apis/_schemas";
-import { useNavigate } from "react-router-dom";
+import type { WorldResponse } from "@apis/_schemas";
+
+import ButtonField from "@/components/fields/ButtonField";
+
+import Loading from "@/components/Loading";
 
 type WorldFinishProps = {
-    world: WorldPayload;
-    handleSave: () => Promise<void>;
+    world: WorldResponse | null;
+    handleSave: (route: string) => Promise<void>;
+    loadingWorld: boolean;
 };
 
-export default function WorldFinish({ world, handleSave }: WorldFinishProps) {
-
-    const navigate = useNavigate();
+export default function WorldFinish({ world, handleSave, loadingWorld }: WorldFinishProps) {
     const saveAndExit = async () => {
-        await handleSave();
-        navigate("/library/worlds");
+        await handleSave("/library/worlds");
     }
     
     const saveAndCampaign = async () => {
-        await handleSave();
-        navigate("/library/campaigns/new");
+        await handleSave("/library/campaigns/new");
     }
 
     return (
         <div className="w-100 d-flex flex-column gap-2">
-            <h2>Next Steps</h2>
+            <h2 className="text-center">Next Steps</h2>
 
-            <div className="w-auto h-auto p-4 bg-dark rounded-4 d-flex flex-column gap-3 text-center">
-                <p >
-                    Your world, <strong>{world.name}</strong>, will now be created.
-                    <br />
-                    <br />
-                    What would you like to do next?
-                </p>
+            {loadingWorld ? (
+                <div className="w-100 h-100 d-flex flex-column align-items-center p-3">
+                    <Loading />
+                </div>
+            ) : (
+                <>
+                    <div className="w-auto h-auto p-4 bg-dark rounded-4 d-flex flex-column gap-3 text-center">
+                        <p >
+                            Your world, <strong>{world?.name}</strong>, will now be created.
+                            <br />
+                            <br />
+                            What would you like to do next?
+                        </p>
 
-                <button className="btn btn-primary" onClick={saveAndExit}>
-                    Save and go to library
-                </button>
-                
-                <button className="btn btn-primary" onClick={saveAndCampaign}>
-                    Save and create a new campaign
-                </button>
+                        <ButtonField
+                            onClick={saveAndCampaign}
+                            type="submit"
+                            color="primary"
+                            rounding="pill"
+                        >
+                            Save and Create Campaign
+                        </ButtonField>
 
-            </div>
+                        <ButtonField
+                            onClick={saveAndExit}
+                            type="submit"
+                            color="primary"
+                            rounding="pill"
+                        >
+                            Save and Exit
+                        </ButtonField>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

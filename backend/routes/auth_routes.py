@@ -14,8 +14,9 @@ if not SECRET_KEY:
     raise ValueError("JWT_KEY environment variable not set.")
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 REFRESH_TOKEN_EXPIRE_DAYS = 7
+REFRESH_TOKEN_EXPIRE_MINUTES = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 router = APIRouter()
@@ -57,7 +58,7 @@ def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None) 
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -91,7 +92,7 @@ def save_tokens(response: Response, access_token: str, refresh_token: str):
         key="refresh_token",
         value=refresh_token,
         httponly=True,
-        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        max_age=REFRESH_TOKEN_EXPIRE_MINUTES * 60,
         samesite="lax",
         secure=False
     )
@@ -129,7 +130,7 @@ def register(payload: UserPayload, response: Response):
     if not payload.username or not payload.email or not payload.password_current:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username, email, and password are required.")
 
-    if users_repo.query([('email','==', payload.email.strip().lower())])[0]:
+    if len(users_repo.query([('email','==', payload.email.strip().lower())])) > 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
     
     user = User(

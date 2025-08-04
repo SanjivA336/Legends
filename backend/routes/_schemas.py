@@ -6,28 +6,22 @@ from backend.models import *
 # === Config ===
 EMPTY_STRING = ""
 
-
 # === Users & Core Entities ===
 
 # --- Payload: all optional fields, no from_model ---
 class UserPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     username: Optional[str] = None
     email: Optional[EmailStr] = None
     password_current: Optional[str] = None
     password_new: Optional[str] = None
 
-    def to_model(self) -> User:
-        return User(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            username=self.username or EMPTY_STRING,
-            email=self.email or EMPTY_STRING,
-            password_hash=EMPTY_STRING,
-        )
+    def to_model(self, model: User) -> User:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
+
 
 
 # --- Response: fields required, from_model included, no to_model ---
@@ -42,7 +36,7 @@ class UserResponse(BaseModel):
 
     @staticmethod
     def from_model(model: User) -> "UserResponse":
-        sch = UserResponse(
+        schema = UserResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -51,31 +45,25 @@ class UserResponse(BaseModel):
             password_current=None,
             password_new=None,
         )
-        return sch
+        return schema
 
 # === World ===
 
 class WorldPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    creator: Optional[UserPayload] = None
-    contexts: Optional[List['ContextPayload']] = None
+    creator_id: Optional[str] = None
+    context_ids: Optional[List[str]] = None
+    blueprint_ids: Optional[List[str]] = None
+    object_ids: Optional[List[str]] = None
     settings: Optional[WorldSetting] = None
 
-    def to_model(self) -> World:
-        return World(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            name=self.name or EMPTY_STRING,
-            description=self.description or EMPTY_STRING,
-            creator_id=self.creator.id or EMPTY_STRING if self.creator else EMPTY_STRING,
-            context_ids=[c.id for c in self.contexts if c.id is not None] if self.contexts else [],
-            settings=self.settings or WorldSetting(is_public=False)
-        )
+    def to_model(self, model: World) -> World:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class WorldResponse(BaseModel):
@@ -86,13 +74,18 @@ class WorldResponse(BaseModel):
     description: Optional[str] = None
     creator: UserResponse
     contexts: List['ContextResponse']
+    blueprints: List['BlueprintResponse'] = []
+    objects: List['ObjectResponse'] = []
     settings: WorldSetting
 
     @staticmethod
     def from_model(model: World) -> "WorldResponse":
         creator = model.get_creator()
         contexts = model.get_context()
-        sch = WorldResponse(
+        blueprints = model.get_blueprints()
+        objects = model.get_objects()
+        
+        schema = WorldResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -100,40 +93,33 @@ class WorldResponse(BaseModel):
             description=model.description,
             creator=UserResponse.from_model(creator),
             contexts=[ContextResponse.from_model(c) for c in contexts],
+            blueprints=[BlueprintResponse.from_model(b) for b in blueprints],
+            objects=[ObjectResponse.from_model(o) for o in objects],
             settings=model.settings,
         )
-        return sch
+        return schema
 
 
 # === Campaign ===
 
 class CampaignPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    creator: Optional[UserPayload] = None
-    world: Optional[WorldPayload] = None
-    contexts: Optional[List['ContextPayload']] = None
+    creator_id: Optional[str] = None
+    world_id: Optional[str] = None
+    context_ids: Optional[List[str]] = None
+    blueprint_ids: Optional[List[str]] = None
+    object_ids: Optional[List[str]] = None
     settings: Optional[WorldSetting] = None
-    members: Optional[List['MemberPayload']] = None
-    eras: Optional[List['EraPayload']] = None
+    member_ids: Optional[List[str]] = None
+    era_ids: Optional[List[str]] = None
 
-    def to_model(self) -> Campaign:
-        return Campaign(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            name=self.name or EMPTY_STRING,
-            description=self.description,
-            creator_id=self.creator.id or EMPTY_STRING if self.creator else EMPTY_STRING,
-            world_id=self.world.id if self.world else None,
-            context_ids=[c.id for c in self.contexts if c.id is not None] if self.contexts else [],
-            settings=self.settings or WorldSetting(is_public=False),
-            member_ids=[m.id for m in self.members if m.id is not None] if self.members else [],
-            era_ids=[e.id for e in self.eras if e.id is not None] if self.eras else []
-        )
+    def to_model(self, model: Campaign) -> Campaign:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class CampaignResponse(BaseModel):
@@ -145,6 +131,8 @@ class CampaignResponse(BaseModel):
     creator: UserResponse
     world: Optional[WorldResponse] = None
     contexts: List['ContextResponse']
+    blueprints: List['BlueprintResponse']
+    objects: List['ObjectResponse']
     settings: WorldSetting
     members: List['MemberResponse']
     eras: List['EraResponse']
@@ -154,10 +142,12 @@ class CampaignResponse(BaseModel):
         creator = model.get_creator()
         world = model.get_world()
         contexts = model.get_context()
+        blueprints = model.get_blueprints()
+        objects = model.get_objects()
         members = model.get_members()
         eras = model.get_eras()
 
-        sch = CampaignResponse(
+        schema = CampaignResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -166,36 +156,30 @@ class CampaignResponse(BaseModel):
             creator=UserResponse.from_model(creator),
             world=WorldResponse.from_model(world) if world else None,
             contexts=[ContextResponse.from_model(c) for c in contexts],
+            blueprints=[BlueprintResponse.from_model(b) for b in blueprints],
+            objects=[ObjectResponse.from_model(o) for o in objects],
             settings=model.settings,
             members=[MemberResponse.from_model(m) for m in members],
             eras=[EraResponse.from_model(e) for e in eras],
         )
-        return sch
+        return schema
 
 
 # === Member ===
 
 class MemberPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    user: Optional[UserPayload] = None
-    campaign: Optional[CampaignPayload] = None
+    user_id: Optional[str] = None
+    campaign_id: Optional[str] = None
     role: Optional[str] = None
     status: Optional[str] = None
-    sleeve: Optional['ObjectPayload'] = None
+    sleeve_id: Optional[str] = None
 
-    def to_model(self) -> Member:
-        return Member(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            user_id=self.user.id if self.user else None,
-            campaign_id=self.campaign.id or EMPTY_STRING if self.campaign else EMPTY_STRING,
-            role=self.role or EMPTY_STRING,
-            status=self.status or "active",
-            sleeve_id=self.sleeve.id if self.sleeve else None
-        )
+    def to_model(self, model: Member) -> Member:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class MemberResponse(BaseModel):
@@ -214,7 +198,7 @@ class MemberResponse(BaseModel):
         campaign = model.get_campaign()
         sleeve = model.get_sleeve()
 
-        sch = MemberResponse(
+        schema = MemberResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -224,28 +208,21 @@ class MemberResponse(BaseModel):
             status=model.status,
             sleeve=ObjectResponse.from_model(sleeve) if sleeve else None
         )
-        return sch
+        return schema
 
 
 # === Context ===
 
 class ContextPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     name: Optional[str] = None
-    type: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
+    content: Optional[str] = None
 
-    def to_model(self) -> Context:
-        return Context(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            name=self.name or EMPTY_STRING,
-            type=self.type or EMPTY_STRING,
-            data=self.data or {},
-        )
+    def to_model(self, model: Context) -> Context:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class ContextResponse(BaseModel):
@@ -253,46 +230,35 @@ class ContextResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     name: str
-    type: str
-    data: Dict[str, Any]
+    content: str
 
     @staticmethod
     def from_model(model: Context) -> "ContextResponse":
-        sch = ContextResponse(
+        schema = ContextResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
             name=model.name,
-            type=model.type,
-            data=model.data,
+            content=model.content,
         )
-        return sch
+        return schema
 
 
 # === Blueprint ===
 class BlueprintPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    creator: Optional[UserPayload] = None
+    creator_id: Optional[str] = None
     is_public: Optional[bool] = None
     is_developer: Optional[bool] = None
     fields: Optional[List[CustomField]] = None
 
-    def to_model(self) -> Blueprint:
-        return Blueprint(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            name=self.name or EMPTY_STRING,
-            description=self.description,
-            creator_id=self.creator.id or EMPTY_STRING if self.creator else EMPTY_STRING,
-            is_public=self.is_public or False,
-            is_developer=self.is_developer or False,
-            fields=self.fields or [],
-        )
+    def to_model(self, model: Blueprint) -> Blueprint:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class BlueprintResponse(BaseModel):
@@ -309,7 +275,7 @@ class BlueprintResponse(BaseModel):
     @staticmethod
     def from_model(model: Blueprint) -> "BlueprintResponse":
         creator = model.get_creator()
-        sch = BlueprintResponse(
+        schema = BlueprintResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -320,33 +286,24 @@ class BlueprintResponse(BaseModel):
             is_developer=model.is_developer,
             fields=model.fields,
         )
-        return sch
+        return schema
 
 
 # === Object ===
 
 class ObjectPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    creator: Optional[UserPayload] = None
-    blueprint: Optional[BlueprintPayload] = None
+    creator_id: Optional[str] = None
+    blueprint_id: Optional[str] = None
     fields: Optional[List[CustomField]] = None
 
-    def to_model(self) -> Object:
-        return Object(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            name=self.name or EMPTY_STRING,
-            description=self.description,
-            creator_id=self.creator.id or EMPTY_STRING if self.creator else EMPTY_STRING,
-            blueprint_id=self.blueprint.id or EMPTY_STRING if self.blueprint else EMPTY_STRING,
-            fields=self.fields or [],
-        )
-
+    def to_model(self, model: Object) -> Object:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 class ObjectResponse(BaseModel):
     id: str
@@ -363,7 +320,7 @@ class ObjectResponse(BaseModel):
         creator = model.get_creator()
         blueprint = model.get_blueprint()
 
-        sch = ObjectResponse(
+        schema = ObjectResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -373,32 +330,24 @@ class ObjectResponse(BaseModel):
             blueprint=BlueprintResponse.from_model(blueprint),
             fields=model.fields,
         )
-        return sch
+        return schema
 
 
 # === Narrative System ===
 
 class ObjectivePayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     name: Optional[str] = None
     task: Optional[str] = None
     progress: Optional[int] = None
-    children: Optional[List['ObjectivePayload']] = None
-    parent: Optional['ObjectivePayload'] = None
+    children_ids: Optional[List[str]] = None
+    parent_id: Optional[str] = None
 
-    def to_model(self) -> Objective:
-        return Objective(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            name=self.name or EMPTY_STRING,
-            task=self.task or EMPTY_STRING,
-            progress=self.progress or 0,
-            children_ids=[child.id for child in self.children if child.id is not None] if self.children else [],
-            parent_id=self.parent.id if self.parent else None,
-        )
+    def to_model(self, model: Objective) -> Objective:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class ObjectiveResponse(BaseModel):
@@ -415,7 +364,7 @@ class ObjectiveResponse(BaseModel):
     def from_model(model: Objective) -> "ObjectiveResponse":
         children = model.get_children()
         parent = model.get_parent()
-        sch = ObjectiveResponse(
+        schema = ObjectiveResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -425,30 +374,22 @@ class ObjectiveResponse(BaseModel):
             children=[ObjectiveResponse.from_model(c) for c in children],
             parent=ObjectiveResponse.from_model(parent) if parent else None,
         )
-        return sch
+        return schema
 
 
 class EraPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    campaign: Optional[CampaignPayload] = None
+    campaign_id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    objective: Optional[ObjectivePayload] = None
-    chapters: Optional[List['ChapterPayload']] = None
+    objective_id: Optional[str] = None
+    chapter_ids: Optional[List[str]] = None
 
-    def to_model(self) -> Era:
-        return Era(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            campaign_id=self.campaign.id or EMPTY_STRING if self.campaign else EMPTY_STRING,
-            name=self.name or EMPTY_STRING,
-            description=self.description,
-            objective_id=self.objective.id or EMPTY_STRING if self.objective else EMPTY_STRING,
-            chapter_ids=[c.id for c in self.chapters if c.id is not None] if self.chapters else [],
-        )
+    def to_model(self, model: Era) -> Era:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class EraResponse(BaseModel):
@@ -467,7 +408,7 @@ class EraResponse(BaseModel):
         objective = model.get_objective()
         chapters = model.get_chapters()
 
-        sch = EraResponse(
+        schema = EraResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -477,30 +418,22 @@ class EraResponse(BaseModel):
             objective=ObjectiveResponse.from_model(objective),
             chapters=[ChapterResponse.from_model(c) for c in chapters],
         )
-        return sch
+        return schema
 
 
 class ChapterPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    era: Optional[EraPayload] = None
+    era_id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    objective: Optional[ObjectivePayload] = None
-    encounters: Optional[List['EncounterPayload']] = None
+    objective_id: Optional[str] = None
+    encounter_ids: Optional[List[str]] = None
 
-    def to_model(self) -> Chapter:
-        return Chapter(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            era_id=self.era.id or EMPTY_STRING if self.era else EMPTY_STRING,
-            name=self.name or EMPTY_STRING,
-            description=self.description,
-            objective_id=self.objective.id or EMPTY_STRING if self.objective else EMPTY_STRING,
-            encounter_ids=[e.id for e in self.encounters if e.id is not None] if self.encounters else [],
-        )
+    def to_model(self, model: Chapter) -> Chapter:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class ChapterResponse(BaseModel):
@@ -519,7 +452,7 @@ class ChapterResponse(BaseModel):
         objective = model.get_objective()
         encounters = model.get_encounters()
 
-        sch = ChapterResponse(
+        schema = ChapterResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -529,29 +462,21 @@ class ChapterResponse(BaseModel):
             objective=ObjectiveResponse.from_model(objective),
             encounters=[EncounterResponse.from_model(c) for c in encounters],
         )
-        return sch
+        return schema
 
 
 class EncounterPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    chapter: Optional[ChapterPayload] = None
+    chapter_id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
-    actions: Optional[List['ActionPayload']] = None
+    action_ids: Optional[List[str]] = None
 
-    def to_model(self) -> Encounter:
-        return Encounter(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            chapter_id=self.chapter.id or EMPTY_STRING if self.chapter else EMPTY_STRING,
-            name=self.name or EMPTY_STRING,
-            description=self.description,
-            action_ids=[a.id for a in self.actions if a.id is not None] if self.actions else [],
-        )
-
+    def to_model(self, model: Encounter) -> Encounter:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 class EncounterResponse(BaseModel):
     id: str
@@ -567,7 +492,7 @@ class EncounterResponse(BaseModel):
         chapter = model.get_chapter()
         actions = model.get_actions()
 
-        sch = EncounterResponse(
+        schema = EncounterResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -576,36 +501,26 @@ class EncounterResponse(BaseModel):
             description=model.description,
             actions=[ActionResponse.from_model(c) for c in actions],
         )
-        return sch
+        return schema
 
 
 # === Action & Events ===
 
 class ActionPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
     encounter: Optional[EncounterPayload] = None
-    owner_member: Optional[MemberPayload] = None
-    character_object: Optional[ObjectPayload] = None
+    owner_member_id: Optional[str] = None
+    character_object_id: Optional[str] = None
     content: Optional[str] = None
     type: Optional[str] = None
     dm_response: Optional[str] = None
-    minigame: Optional['MinigameResultPayload'] = None
+    minigame_id: Optional[str] = None
 
-    def to_model(self) -> Action:
-        return Action(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            encounter_id=self.encounter.id or EMPTY_STRING if self.encounter else EMPTY_STRING,
-            owner_member_id=self.owner_member.id or EMPTY_STRING if self.owner_member else EMPTY_STRING,
-            character_object_id=self.character_object.id or EMPTY_STRING if self.character_object else EMPTY_STRING,
-            content=self.content or EMPTY_STRING,
-            type=self.type or EMPTY_STRING,
-            dm_response=self.dm_response,
-            minigame_id=self.minigame.id or EMPTY_STRING if self.minigame else EMPTY_STRING,
-        )
+    def to_model(self, model: Action) -> Action:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class ActionResponse(BaseModel):
@@ -627,7 +542,7 @@ class ActionResponse(BaseModel):
         character_object = model.get_character()
         minigame = model.get_minigame()
 
-        sch = ActionResponse(
+        schema = ActionResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -639,30 +554,22 @@ class ActionResponse(BaseModel):
             dm_response=model.dm_response,
             minigame=MinigameResultResponse.from_model(minigame) if minigame else None,
         )
-        return sch
+        return schema
 
 
 class MinigameResultPayload(BaseModel):
     id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    action: Optional[ActionPayload] = None
+    action_id: Optional[str] = None
     type: Optional[str] = None
     result: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
     completed_at: Optional[datetime] = None
 
-    def to_model(self) -> MinigameResult:
-        return MinigameResult(
-            id=self.id or EMPTY_STRING,
-            created_at=self.created_at or datetime.now(timezone.utc),
-            updated_at=self.updated_at or datetime.now(timezone.utc),
-            action_id=self.action.id or EMPTY_STRING if self.action else EMPTY_STRING,
-            type=self.type or EMPTY_STRING,
-            result=self.result or EMPTY_STRING,
-            details=self.details or {},
-            completed_at=self.completed_at or datetime.now(timezone.utc),
-        )
+    def to_model(self, model: MinigameResult) -> MinigameResult:
+        update_data = self.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(model, field, value)
+        return model
 
 
 class MinigameResultResponse(BaseModel):
@@ -678,7 +585,7 @@ class MinigameResultResponse(BaseModel):
     @staticmethod
     def from_model(model: MinigameResult) -> "MinigameResultResponse":
         action = model.get_action()
-        sch = MinigameResultResponse(
+        schema = MinigameResultResponse(
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
@@ -688,7 +595,7 @@ class MinigameResultResponse(BaseModel):
             details=model.details,
             completed_at=model.completed_at,
         )
-        return sch
+        return schema
 
 
 # Resolve forward refs

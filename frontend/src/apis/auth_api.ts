@@ -1,5 +1,5 @@
 import { POST_ENDPOINT } from "./_api_core";
-import type { UserPayload } from "./_schemas";
+import type { UserPayload, UserResponse } from "./_schemas";
 
 
 // === Endpoints ===
@@ -20,8 +20,8 @@ export async function register(username: string, email: string, password_current
     return POST_ENDPOINT<UserPayload, null>('/register', payload);
 }
 
-export async function authenticate() {
-    return POST_ENDPOINT('/authenticate', {});
+export async function authenticate(): Promise<UserResponse> {
+    return POST_ENDPOINT<null, UserResponse>('/authenticate', null);
 }
 
 export async function refresh() {

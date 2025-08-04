@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { authenticate } from "@apis/auth_api";
+import { authenticate, refresh } from "@apis/auth_api";
 import type { UserResponse } from "@apis/_schemas";
 
 type AuthContextType = {
@@ -18,12 +18,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         async function checkAuth() {
+            setLoading(true);
             try {
-                const data = await authenticate();
-                setUser(data);
-            } catch (err) {
-                console.error("Authentication failed:", err);
-                setUser(null);
+                const userData = await authenticate();
+                setUser(userData);
+            } catch (error) {
+                console.error("Authentication failed. Attempting refresh:", error);
+                try {
+                    await refresh();
+                    const userData = await authenticate();
+                    setUser(userData);
+                } catch (refreshError) {
+                    console.error("Session refresh failed:", refreshError);
+                    setUser(null);
+                }
             } finally {
                 setLoading(false);
             }
