@@ -1,3 +1,5 @@
+import ButtonField from "@/components/fields/ButtonField";
+
 type ToggleFieldProps = {
     value: boolean;
     setValue: (value: boolean) => void;
@@ -7,7 +9,7 @@ type ToggleFieldProps = {
     required?: boolean;
     disabled?: boolean;
 
-    type?: "checkbox" | "switch" | "radio";
+    type?: "checkbox" | "switch" | "radio" | "button";
 };
 
 const ToggleField = ({ value, setValue, label, type = "checkbox", required = false, disabled = false }: ToggleFieldProps) => {
@@ -18,23 +20,35 @@ const ToggleField = ({ value, setValue, label, type = "checkbox", required = fal
                 type === "radio" ? "my-0" : "my-2",
             ].join(" ")}
         >
-            <div 
-                className={[
-                    "form-check",
-                    type === "switch" ? "form-switch" : "mx-2",
-                    "d-flex align-items-center"
-                ].join(" ")}>
-                <input
-                    type={type === "switch" ? "checkbox" : type}
-                    className="form-check-input"
-                    checked={value}
-                    onChange={(e) => setValue(e.target.checked)}
-                    required={required}
+            { type === "button" ? (
+                <ButtonField 
+                    onClick={() => setValue(!value)}
                     disabled={disabled}
-                />
-            </div>
+                    color="primary"
+                    outlineVariant={!value}
+                    className="p-2"
+                >
+                    {label}: {value ? "On" : "Off"}
+                </ButtonField>
+            ) : (
+                <div 
+                    className={[
+                        "form-check",
+                        type === "switch" ? "form-switch" : "mx-2",
+                        "d-flex align-items-center"
+                    ].join(" ")}>
+                    <input
+                        type={type === "switch" ? "checkbox" : type}
+                        className="form-check-input"
+                        checked={value}
+                        onChange={(e) => setValue(e.target.checked)}
+                        required={required}
+                        disabled={disabled}
+                    />
+                </div>
+            )}
 
-            {label && (
+            {label && type !== "button" && (
                 <label className="w-100 ps-2 pb-2 mt-2 text-start">
                     {label}
                 </label>

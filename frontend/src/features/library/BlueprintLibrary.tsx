@@ -11,8 +11,8 @@ export default function BlueprintLibrary() {
     const [allBlueprints, setAllBlueprints] = useState<BlueprintResponse[]>([]);
 
     const [showEditor, setShowEditor] = useState<boolean>(false);
-    const [currentBlueprint, setCurrentBlueprint] = useState<BlueprintResponse | null>(null);
-    
+    const [currentBlueprintID, setCurrentBlueprintID] = useState<string | "new">("new");
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>("");
 
@@ -34,12 +34,12 @@ export default function BlueprintLibrary() {
     }, []);
 
     const openCreator = () => {
-        setCurrentBlueprint(null);
+        setCurrentBlueprintID("new");
         setShowEditor(true);
     }
 
     const openEditor = (blueprint: BlueprintResponse) => {
-        setCurrentBlueprint(blueprint);
+        setCurrentBlueprintID(blueprint.id);
         setShowEditor(true);
     }
 
@@ -89,8 +89,7 @@ export default function BlueprintLibrary() {
             <BlueprintEditor
                 showEditor={showEditor}
                 setShowEditor={setShowEditor}
-                blueprint={currentBlueprint || undefined}
-                setBlueprint={setCurrentBlueprint}
+                blueprint_id={currentBlueprintID}
                 availableBlueprints={allBlueprints}
                 refresh={fetchBlueprints}
             />

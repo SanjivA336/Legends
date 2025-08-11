@@ -7,8 +7,6 @@ import NumberField from "@/components/fields/NumberField";
 
 import Loading from "@/components/Loading";
 
-import DeletePopup from "@/components/DeletePopup";
-
 type GenericListProps<T> = {
     itemName?: string;
     items: T[];
@@ -41,9 +39,6 @@ export function GenericList<T>({ itemName="item", items, refresh, openEditor, op
 
     const [page, setPage] = useState<number>(0);
     const [maxPages, setMaxPages] = useState<number>(Math.ceil(items.length / (limit || items.length)));
-    
-    const [showDelete, setShowDelete] = useState<boolean>(false);
-
 
     const limitOptions = [4, 8, 12, 16, 20, 24, 32, 50, 100];
 

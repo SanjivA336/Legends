@@ -31,11 +31,12 @@ export async function blueprint_get(id: string): Promise<BlueprintResponse> {
     return GET_ENDPOINT<BlueprintResponse>(`/blueprint/${id}`);
 }
 
-export async function blueprint_post(id: string, name: string, description?: string, fields?: CustomField[]): Promise<BlueprintResponse> {
+export async function blueprint_post(id: string, name: string, description: string, is_public: boolean, fields: CustomField[]): Promise<BlueprintResponse> {
     const payload: BlueprintPayload = {
         id: id,
         name: name,
         description: description,
+        is_public: is_public,
         fields: fields,
     };
     return POST_ENDPOINT<BlueprintPayload, BlueprintResponse>(`/blueprint/${id}`, payload);

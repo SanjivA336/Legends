@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { object_get } from "@/apis/library_api";
-import type { ObjectResponse, BlueprintResponse, WorldResponse } from "@apis/_schemas";
+import type { ObjectResponse, WorldResponse } from "@apis/_schemas";
 
 import ShortTextField from "@/components/fields/ShortTextField";
 import LongTextField from "@/components/fields/LongTextField";
@@ -15,7 +15,6 @@ import Loading from "@components/Loading";
 
 import MessageBox from "@/components/MessageBox";
 import Modal from "@/components/design/Modal";
-import ButtonField from "@/components/fields/ButtonField";
 
 type ObjectEditorProps = {
     showEditor: boolean;

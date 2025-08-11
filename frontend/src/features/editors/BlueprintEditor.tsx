@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 import { blueprint_get, blueprint_post, blueprint_delete } from "@/apis/library_api";
 import type { BlueprintResponse, WorldResponse } from "@apis/_schemas";
@@ -24,37 +24,34 @@ import DeletePopup from "@/components/DeletePopup";
 type BlueprintEditorProps = {
     showEditor: boolean;
     setShowEditor: (show: boolean) => void;
-    blueprint?: BlueprintResponse;
-    setBlueprint?: (blueprint: BlueprintResponse) => void;
+    blueprint_id?: string | "new";
     availableBlueprints?: BlueprintResponse[];
     refresh?: () => void;
     parentWorld?: WorldResponse | null;
     setParentWorld?: (world: WorldResponse) => void;
 };
 
-export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, setBlueprint, availableBlueprints, refresh, parentWorld, setParentWorld }: BlueprintEditorProps) {
+export default function BlueprintEditor({ showEditor, setShowEditor, blueprint_id="new", availableBlueprints, refresh, parentWorld, setParentWorld }: BlueprintEditorProps) {
     const [localBlueprint, setLocalBlueprint] = useState<BlueprintResponse | null>(null);
 
     const [tabNumber, setTabNumber] = useState<number>(0);
 
     const [showDelete, setShowDelete] = useState<boolean>(false);
 
+    const [speedCreate, setSpeedCreate] = useState<boolean>(false);
+
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>("");
+    const [isDirty, setIsDirty] = useState<boolean>(false);
 
     const fetchBlueprint = async () => {
         setLoading(true);
         setError("");
-
         try{
-            if (blueprint) {
-                setLocalBlueprint(blueprint);
-            } else {
-                const data: BlueprintResponse = await blueprint_get("new")
-                setLocalBlueprint(data);
-            }
+            const data: BlueprintResponse = await blueprint_get(blueprint_id);
+            setLocalBlueprint(data);
         } catch (err) {
-                setError("Failed to fetch blueprint data.");
+            setError("Failed to fetch blueprint data: " + String(err));
         } finally {
             setLoading(false);
         }
@@ -68,76 +65,109 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
         try{
             setLoading(true);
             setError("");
-            let savedBlueprint: BlueprintResponse | null = null;
-            if(blueprint !== undefined){
-                setBlueprint?.(localBlueprint);
-                savedBlueprint = await blueprint_post(
-                    localBlueprint.id, 
-                    localBlueprint.name, 
-                    localBlueprint.description || "", 
-                    localBlueprint.fields
-                );
-            } else {
-                savedBlueprint = await blueprint_post(
-                    "new", 
-                    localBlueprint.name, 
-                    localBlueprint.description || "", 
-                    localBlueprint.fields
-                );
+
+            // Data Validation
+            if (!localBlueprint.name) {
+                setError("Blueprint name is required.");
+                return;
             }
 
-            if (parentWorld && setParentWorld && savedBlueprint) {
-                const existingBlueprints = parentWorld.blueprints || [];
-
-                const updatedBlueprints = existingBlueprints.some(bp => bp.id === savedBlueprint.id)
-                    ? existingBlueprints.map(bp =>
-                        bp.id === savedBlueprint.id ? savedBlueprint : bp
-                    )
-                    : [...existingBlueprints, savedBlueprint];
-
-                setParentWorld({
-                    ...parentWorld,
-                    blueprints: updatedBlueprints,
-                });
+            if (!localBlueprint.fields || localBlueprint.fields.length === 0) {
+                setError("At least one field is required.");
+                return;
             }
 
-            setLocalBlueprint(null);
-            setShowEditor(false);
-            refresh?.();
+            for (const field of localBlueprint.fields) {
+                if (!field.name || field.name.trim() === "") {
+                    setError("All fields must have a name.");
+                    return;
+                }
+                if (!field.type || !VALID_BLUEPRINT_TYPES.includes(field.type as typeof VALID_BLUEPRINT_TYPES[number])) {
+                    setError("All fields must have a valid type.");
+                    return;
+                }
+                if (field.type === "select") {
+                    if (!field.options || field.options.length === 0) {
+                        setError("Select fields must have at least one option.");
+                        return;
+                    }
+                    for (const option of field.options) {
+                        if (!option || option.trim() === "") {
+                            setError("All options must have a value.");
+                            return;
+                        }
+                    }
+                }
+                if (!field.value || field.value.trim() === "") {
+                    setError("All fields must have a default value.");
+                    return;
+                }
+            }
+
+            const savedBlueprint = await blueprint_post(
+                localBlueprint.id,
+                localBlueprint.name,
+                localBlueprint.description || "",
+                localBlueprint.is_public || false,
+                localBlueprint.fields
+            );
+
+            if(parentWorld && setParentWorld && savedBlueprint) {
+                // Update parent world with new blueprint, only if it isn't already included
+                if (!parentWorld.blueprints.includes(savedBlueprint)) {
+                    setParentWorld({
+                        ...parentWorld,
+                        blueprints: [...parentWorld.blueprints, savedBlueprint]
+                    });
+                }
+            }
+
+            setIsDirty(false);
+            if(speedCreate) {
+                fetchBlueprint();
+            }
+            else {
+                setShowEditor(false);
+            }
         } catch (err) {
-            setError("Failed to save blueprint data.");
+            setError("Failed to save blueprint data: " + String(err));
         } finally {
-            fetchBlueprint();
+            refresh?.();
             setLoading(false);
         }
     }
 
     const handleDelete = async () => {
-        if(blueprint){
+        if(blueprint_id !== "new") {
             try{
                 setLoading(true);
-                await blueprint_delete(blueprint.id);
+                await blueprint_delete(blueprint_id);
             }
             catch (err){
-                setError(String(err));
+                setError("Failed to delete blueprint: " + String(err));
             } finally{
                 setLoading(false);
             }
             setShowEditor(false);
-            refresh?.();
         }
-    }
+    };
 
     useEffect(() => {
-        refresh?.();
-        fetchBlueprint();
-    }, [blueprint]);
+        if(showEditor) {
+            fetchBlueprint();
+            setIsDirty(false);
+        }
+        else {
+            refresh?.();
+        }
+        setSpeedCreate(false);
+    }, [showEditor]);
 
-    
     const addField = () => {
         if (!localBlueprint) return;
 
         setError("");
+        setIsDirty(true);
 
         setLocalBlueprint({
             ...localBlueprint,
@@ -150,6 +180,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
         if (!localBlueprint) return;
 
         setError("");
+        setIsDirty(true);
 
         setLocalBlueprint({
         ...localBlueprint,
@@ -162,6 +193,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
         if (!localBlueprint) return;
 
         setError("");
+        setIsDirty(true);
 
         const newFields = [...localBlueprint.fields];
         const field = newFields[index];
@@ -193,6 +225,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
         if (!localBlueprint) return;
 
         setError("");
+        setIsDirty(true);
 
         const newFields = [...localBlueprint.fields];
         const field = newFields[index];
@@ -217,7 +250,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
 
     return (
         <Modal
-            title={blueprint ? "Edit Blueprint" : "Create Blueprint"}
+            title={blueprint_id === "new" ? "Create Blueprint" : "Edit Blueprint"}
             showModal={showEditor}
             setShowModal={setShowEditor}
             onClose={fetchBlueprint}
@@ -242,7 +275,21 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                 <Loading />
             ) : (localBlueprint ? (
                 <form className="d-flex flex-column gap-3" onSubmit={handleSave}>
-                    <h1 className="text-center">{blueprint?.name || "My Blueprint"}</h1>
+                    <span className="w-100 d-flex flex-row align-items-center justify-content-center">
+                        <div className="w-25"/>
+                        <h1 className="w-50 text-center">{localBlueprint.name || "My Blueprint"}</h1>
+                        { blueprint_id === "new" && (
+                            <div className="w-25">
+                                <ToggleField
+                                    value={speedCreate}
+                                    setValue={setSpeedCreate}
+                                    label="Speed Create"
+                                    type="button"
+                                />
+                            
+                            </div>
+                        )}
+                    </span>
                     <TabGroup
                         tabNumber={tabNumber}
                         setTabNumber={setTabNumber}
@@ -256,7 +303,10 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                             <h3 className="text-center">General</h3>
                             <ShortTextField
                                 value={localBlueprint.name}
-                                setValue={(value) => setLocalBlueprint({ ...localBlueprint, name: value })}
+                                setValue={(value) => {
+                                    setLocalBlueprint({ ...localBlueprint, name: value });
+                                    setIsDirty(true);
+                                }}
                                 placeholder="Blueprint Name"
                                 label="Name"
                                 required={true}
@@ -264,7 +314,10 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
 
                             <LongTextField
                                 value={localBlueprint.description || ""}
-                                setValue={(value) => setLocalBlueprint({ ...localBlueprint, description: value })}
+                                setValue={(value) => {
+                                    setLocalBlueprint({ ...localBlueprint, description: value });
+                                    setIsDirty(true);
+                                }}
                                 placeholder="Description"
                                 label="Description"
                                 required={false}
@@ -272,7 +325,10 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
 
                             <ToggleField
                                 value={localBlueprint.is_public || false}
-                                setValue={(value) => setLocalBlueprint({ ...localBlueprint, is_public: value })}
+                                setValue={(value) => {
+                                    setLocalBlueprint({ ...localBlueprint, is_public: value });
+                                    setIsDirty(true);
+                                }}
                                 label="Public"
                                 type="switch"
                             />
@@ -298,6 +354,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                                                     const updatedFields = [...localBlueprint.fields];
                                                     updatedFields[index].type = value;
                                                     setLocalBlueprint({ ...localBlueprint, fields: updatedFields });
+                                                    setIsDirty(true);
                                                 }}
                                                 label="Type"
                                                 required
@@ -315,6 +372,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                                                     const updatedFields = [...localBlueprint.fields];
                                                     updatedFields[index].name = value;
                                                     setLocalBlueprint({ ...localBlueprint, fields: updatedFields });
+                                                    setIsDirty(true);
                                                 }}
                                                 placeholder="Name"
                                                 label="Name"
@@ -331,6 +389,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                                                         const updatedFields = [...localBlueprint.fields];
                                                         updatedFields[index].value = value;
                                                         setLocalBlueprint({ ...localBlueprint, fields: updatedFields });
+                                                        setIsDirty(true);
                                                     }}
                                                     placeholder="Default Value"
                                                     label="Default Value"
@@ -344,6 +403,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                                                         const updatedFields = [...localBlueprint.fields];
                                                         updatedFields[index].value = value.toString();
                                                         setLocalBlueprint({ ...localBlueprint, fields: updatedFields });
+                                                        setIsDirty(true);
                                                     }}
                                                     placeholder="Default Value"
                                                     label="Default Value"
@@ -358,6 +418,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                                                         const updatedFields = [...localBlueprint.fields];
                                                         updatedFields[index].value = (value === "true" ? "true" : "false");
                                                         setLocalBlueprint({ ...localBlueprint, fields: updatedFields });
+                                                        setIsDirty(true);
                                                     }}
                                                     label="Default Value"
                                                     required
@@ -373,6 +434,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                                                         const updatedFields = [...localBlueprint.fields];
                                                         updatedFields[index].value = value;
                                                         setLocalBlueprint({ ...localBlueprint, fields: updatedFields });
+                                                        setIsDirty(true);
                                                     }}
                                                     label="Default Value"
                                                     required
@@ -388,6 +450,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                                                         const updatedFields = [...localBlueprint.fields];
                                                         updatedFields[index].value = value;
                                                         setLocalBlueprint({ ...localBlueprint, fields: updatedFields });
+                                                        setIsDirty(true);
                                                     }}
                                                     label="Default Value"
                                                     required
@@ -431,6 +494,7 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                                                                 const updatedFields = [...localBlueprint.fields];
                                                                 updatedFields[index].options![optionIndex] = value;
                                                                 setLocalBlueprint({ ...localBlueprint, fields: updatedFields });
+                                                                setIsDirty(true);
                                                             }}
                                                             placeholder="Value"
                                                             prepend={`Option ${optionIndex + 1}`}
@@ -468,18 +532,11 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                     )}
 
                     {error && <MessageBox error={error} />}
+                    {isDirty && <MessageBox warning="You have unsaved changes." />}
                     <hr />
 
                     <div className="d-flex flex-row gap-3">
-                        {blueprint ? (
-                            <ButtonField
-                                onClick={() => setShowDelete(true)}
-                                color="danger"
-                                rounding="3"
-                            >
-                                Delete
-                            </ButtonField>
-                        ) : (
+                        {blueprint_id === "new" ? (
                             <ButtonField
                                 onClick={() => setShowEditor(false)}
                                 color="danger"
@@ -487,14 +544,23 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint, 
                             >
                                 Cancel
                             </ButtonField>
+                        ) : (
+                            <ButtonField
+                                onClick={() => setShowDelete(true)}
+                                color="danger"
+                                rounding="3"
+                            >
+                                Delete
+                            </ButtonField>
                         )}
                         <ButtonField
                             onClick={handleSave}
                             color="primary"
                             loading={loading}
                             rounding="3"
+                            disabled={!isDirty}
                         >
-                            {blueprint ? "Save Changes" : "Create Blueprint"}
+                            {blueprint_id === "new" ? "Create Blueprint" : "Save Changes"}
                         </ButtonField>
                     </div>
                 </form>

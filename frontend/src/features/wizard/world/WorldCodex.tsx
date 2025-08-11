@@ -25,7 +25,7 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
 
     const [availableBlueprints, setAvailableBlueprints] = useState<BlueprintResponse[]>([]);
     const [showBlueprintEditor, setShowBlueprintEditor] = useState<boolean>(false);
-    const [currentBlueprint, setCurrentBlueprint] = useState<BlueprintResponse | null>(null);
+    const [currentBlueprintID, setCurrentBlueprintID] = useState<string | "new">("new");
 
     const [showBlueprintSelector, setShowBlueprintSelector] = useState<boolean>(false);
     const [highlightedBlueprint, setHighlightedBlueprint] = useState<BlueprintResponse | null>(null);
@@ -77,6 +77,16 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
         } else {
             setFilteredObjects(world?.objects.filter(object => object.blueprint.id === blueprintFilter) || []);
         }
+    }
+
+    const openBlueprintCreator = () => {
+        setCurrentBlueprintID("new");
+        setShowBlueprintEditor(true);
+    }
+
+    const openBlueprintEditor = (blueprint: BlueprintResponse) => {
+        setCurrentBlueprintID(blueprint.id);
+        setShowBlueprintEditor(true);
     }
 
     const blueprintRenderDetails = (blueprint: BlueprintResponse) => {
@@ -168,7 +178,8 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
                         <GenericList<BlueprintResponse>
                             itemName="blueprint"
                             items={world?.blueprints || []}
-                            openCreator={() => {setShowBlueprintEditor(true); setCurrentBlueprint(null)}}
+                            openCreator={openBlueprintCreator}
+                            openEditor={openBlueprintEditor}
                             renderDetails={blueprintRenderDetails}
                             search
                             getItemName={(blueprint) => blueprint.name}
@@ -179,7 +190,7 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
                             <ButtonField
                                 onClick={() => setShowBlueprintSelector(true)}
                                 className="p-2 text-nowrap">
-                                Add Existing
+                                Link Existing
                             </ButtonField>
                         </GenericList>
 
@@ -187,9 +198,7 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
                         <BlueprintEditor
                             showEditor={showBlueprintEditor}
                             setShowEditor={setShowBlueprintEditor}
-                            blueprint={currentBlueprint || undefined}
-                            setBlueprint={setCurrentBlueprint}
-                            availableBlueprints={world?.blueprints || []}
+                            blueprint_id={currentBlueprintID}
                             refresh={fetchBlueprints}
                             parentWorld={world}
                             setParentWorld={setWorld}
@@ -197,7 +206,7 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
 
                         {/* Blueprint Selector */}
                         <Modal
-                            title="Add Blueprint"
+                            title="Link Blueprint"
                             showModal={showBlueprintSelector}
                             setShowModal={setShowBlueprintSelector}
                             onClose={() => setHighlightedBlueprint(null)}>
@@ -209,7 +218,7 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
                                 loading={loadingBlueprints}
                                 disabled={highlightedBlueprint === null}
                                 >
-                                    <h4 className="m-0">Add Blueprint</h4>
+                                    <h4 className="m-0">Link Blueprint</h4>
                             </ButtonField>
 
                             <div className="w-100 bg-darkest p-3 rounded-4">
@@ -250,7 +259,7 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
                             <DropdownField
                                 value={blueprintFilter}
                                 setValue={setBlueprintFilter}
-                                prepend="Filter"
+                                prepend="Blueprint"
                                 options={[...world?.blueprints || [], { id: "", name: "None" }]}
                                 optionValue={(blueprint) => (blueprint.id)}
                                 optionLabel={(blueprint) => (blueprint.name)}
