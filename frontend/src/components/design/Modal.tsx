@@ -23,7 +23,7 @@ const Modal = ({ title, showModal, setShowModal, children, onClose, height="100"
 
     return (
         <div className="vw-100 vh-100 fixed-top d-flex flex-column justify-content-center align-items-center p-5" tabIndex={-1} role="dialog" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-            <Card width={width} height={height} additionalClasses="overflow-y-auto bg-dark">
+            <div className="h-100 col-lg-9 col-12 text-light p-4 rounded-4 bg-dark overflow-y-auto">
                 <div className="d-flex flex-row justify-content-between align-items-center m-2">
                     <h3 className="d-flex flex-column align-content-between m-0">
                         {title}
@@ -37,7 +37,7 @@ const Modal = ({ title, showModal, setShowModal, children, onClose, height="100"
                 <div className="d-flex flex-column gap-3 p-3 overflow-y-auto">
                     {children}
                 </div>
-            </Card>
+            </div>
         </div>
     );
 };

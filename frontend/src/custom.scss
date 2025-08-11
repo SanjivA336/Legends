@@ -48,21 +48,21 @@ $body-bg:    #18181a;      // Page background color
 $body-color: #f0f0f0;      // Body text color
 
 // === Fonts ===
-$font-family-sans-serif: 'Cal Sans', sans-serif !default;  // UI and body sans-serif
-$font-family-monospace:  'DM Mono', monospace !default;   // Code font
-$font-family-serif:      'Hepta Slab', serif !default;    // Serif font
-$font-family-base:       'Lexend', sans-serif !default;   // Base font-family (body text)
+$font-family-sans-serif: 'Cal Sans', sans-serif !default;     // UI and display sans-serif
+$font-family-monospace:  'Roboto Mono', monospace !default;   // Code font
+$font-family-serif:      'Arvo', serif !default;              // Serif font
+$font-family-base:       'Outfit', sans-serif !default;     // Body font
 
 // === Typography Overrides ===
 
 // Headings use Calsans (display font)
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cal Sans', sans-serif;
+    font-family: $font-family-sans-serif;
 }
 
 // Paragraphs and general text use Lexend (body font)
 body, p, span, li, blockquote, dd, dt, th, td {
-    font-family: 'Lexend', sans-serif;
+    font-family: $font-family-base;
 }
 
 .bg-darker {

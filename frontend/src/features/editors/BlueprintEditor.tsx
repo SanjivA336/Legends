@@ -278,17 +278,16 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint_i
                     <span className="w-100 d-flex flex-row align-items-center justify-content-center">
                         <div className="w-25"/>
                         <h1 className="w-50 text-center">{localBlueprint.name || "My Blueprint"}</h1>
-                        { blueprint_id === "new" && (
-                            <div className="w-25">
+                        <div className="w-25">
+                            { blueprint_id === "new" && (
                                 <ToggleField
                                     value={speedCreate}
                                     setValue={setSpeedCreate}
                                     label="Speed Create"
                                     type="button"
                                 />
-                            
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </span>
                     <TabGroup
                         tabNumber={tabNumber}
@@ -455,8 +454,8 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint_i
                                                     label="Default Value"
                                                     required
                                                     options={availableBlueprints?.filter(bp => bp.id !== localBlueprint.id) || []}
-                                                    optionValue={(blueprint) => blueprint.id}
-                                                    optionLabel={(blueprint) => blueprint.name}
+                                                    optionValue={(bp) => bp.id}
+                                                    optionLabel={(bp) => bp.name}
                                                 />
                                             )}
                                         </div>
