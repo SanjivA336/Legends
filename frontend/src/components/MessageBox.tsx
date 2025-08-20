@@ -7,7 +7,7 @@ type MessageBoxProps = {
 
 const MessageBox = ({ error, warning, info, success }: MessageBoxProps) => {
 
-    const boxStyle = (color: string) => `w-100 text-${color} border border-2 border-${color} p-2 bg-${color}-subtle-dark rounded-3`;
+    const boxStyle = (color: string) => `w-100 text-${color} border text-center border-2 border-${color} p-3 bg-${color}-subtle-dark rounded-3`;
 
     return (
         <div className="w-100 d-flex flex-column gap-2">

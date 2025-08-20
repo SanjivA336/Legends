@@ -105,5 +105,13 @@ body, p, span, li, blockquote, dd, dt, th, td {
     background-color: color.mix($success, $dark, $bg-subtle-mix-pct);
 }
 
+.scrollbar-hidden {
+    scrollbar-width: none; // Firefox
+    -ms-overflow-style: none; // IE/Edge
+    &::-webkit-scrollbar {
+        display: none; // Chrome/Safari
+    }
+}
+
 // === Import Bootstrap with overrides applied ===
 @import 'bootstrap/scss/bootstrap.scss';

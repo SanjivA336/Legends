@@ -63,80 +63,78 @@ export function GenericList<T>({ itemName="item", items, refresh, openEditor, op
         setMaxPages(Math.ceil(filteredItems.length / limit));
     }, [filteredItems, limit]);
 
+    const nextPage = () => {
+        if (page < maxPages - 1) {
+            setPage(page + 1);
+        }
+    }
 
+    const prevPage = () => {
+        if (page > 0) {
+            setPage(page - 1);
+        }
+    }
 
     return (
-        <div className="w-100 h-100 align-items-center d-flex flex-column gap-2">
+        <div className="w-100 h-100 align-items-center justify-content-start d-flex flex-column gap-2">
             {search && (
-                <div className="w-100 d-flex flex-row mb-2">
+                <div className="w-100 d-flex flex-row mb-2 align-items-center justify-content-between gap-2">
                     {refresh && (
-                        <div className="w-25 px-1">
                             <ButtonField
                                 onClick={refresh}
                                 loading={loading}
                                 color="dark"
                                 rounding="pill"
-                                className="p-2"
+                                className="px-3 py-2"
                             >
                                 Refresh
                             </ButtonField>
-                        </div>
                     )}
 
-                    <div className="w-100 px-1">
                         <ShortTextField
                             value={searchQuery}
                             setValue={setSearchQuery}
                             placeholder={`Search ${itemName}s by name...`}
                             prepend="🔍︎"
                             clearable
+                            className="w-100"
                         />
-                    </div>
 
-                    {(viewSelector || limitSelector) && (
-                        <div className="w-50 d-flex flex-row px-1 gap-2 py-0 m-0">
-                            {viewSelector && (
-                                <DropdownField
-                                    value={view}
-                                    setValue={setView}
-                                    prepend="View"
-                                    options={["grid", "list"]}
-                                    optionValue={(option) => option}
-                                    optionLabel={(option) => option.charAt(0).toUpperCase() + option.slice(1)}
-                                />
-                            )}
-                            {limitSelector && (
-                                <DropdownField
-                                    value={limit}
-                                    setValue={setLimit}
-                                    prepend="Limit"
-                                    options={limitOptions}
-                                    optionValue={(option) => option}
-                                    optionLabel={(option) => option.toString()}
-                                />
-                            )}
-                        </div>
+                    {viewSelector && (
+                            <DropdownField
+                                value={view}
+                                setValue={setView}
+                                prepend="View"
+                                options={["grid", "list"]}
+                                optionValue={(option) => option}
+                                optionLabel={(option) => option.charAt(0).toUpperCase() + option.slice(1)}
+                            />
+                    )}
+
+                    {limitSelector && (
+                            <DropdownField
+                                value={limit}
+                                setValue={setLimit}
+                                prepend="Limit"
+                                options={limitOptions}
+                                optionValue={(option) => option}
+                                optionLabel={(option) => option.toString()}
+                            />
                     )}
 
                     {openCreator && (
-                        <div className="w-25 px-1">
                             <ButtonField
                                 onClick={openCreator}
                                 loading={loading}
                                 color="primary"
                                 rounding="pill"
-                                className="p-2"
+                                className="px-3 py-2"
                             >
                                 Create
                             </ButtonField>
-                        </div>
                     )}
 
-                    {children && (
-                        <div className="w-25 px-1">
-                            {children}
-                        </div>
-                    )}
+                    {children}
                 </div>
             )}
 
@@ -188,21 +186,32 @@ export function GenericList<T>({ itemName="item", items, refresh, openEditor, op
                             </div>
                         ))}
                     </div>
+
                     {pagination && (
-                        <div className="w-50 d-flex flex-row justify-content-center align-items-center gap-2 mt-3">
-                            <span className="w-100 text-light text-center d-flex flex-row align-items-center justify-content-center">
-                                Page 
-                                <div className="w-50 mx-2">
-                                    <NumberField
-                                        value={page + 1}
-                                        setValue={(value) => setPage(value - 1)}
-                                        min={1}
-                                        max={maxPages}
-                                        incrementer
-                                    />
-                                </div>
-                                of {maxPages}
+                        <div className="col-md-4 col-6 d-flex flex-row justify-content-center align-items-center gap-2 mt-3">
+                            <ButtonField
+                                onClick={prevPage}
+                                disabled={page === 0}
+                                color="dark"
+                                rounding="pill"
+                                className="col-md-4 col-3 px-3 py-2"
+                            >
+                                Previous
+                            </ButtonField>
+
+                            <span className="col-md-4 col-6 text-light text-center d-flex flex-row align-items-center justify-content-center">
+                                Page {page + 1} of {maxPages}
                             </span>
+
+                            <ButtonField
+                                onClick={nextPage}
+                                disabled={page >= maxPages - 1}
+                                color="dark"
+                                rounding="pill"
+                                className="col-md-4 col-3 px-3 py-2"
+                            >
+                                Next
+                            </ButtonField>
                         </div>
                     )}
                 </div>

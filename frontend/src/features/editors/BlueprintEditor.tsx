@@ -113,11 +113,20 @@ export default function BlueprintEditor({ showEditor, setShowEditor, blueprint_i
             );
 
             if(parentWorld && setParentWorld && savedBlueprint) {
-                // Update parent world with new blueprint, only if it isn't already included
-                if (!parentWorld.blueprints.includes(savedBlueprint)) {
+                // Get ids of the blueprints in the parent world
+                
+                if (!parentWorld.blueprints.some(bp => bp.id === savedBlueprint.id)) {
+                    // If the blueprint does not exist, add it to the parent world
                     setParentWorld({
                         ...parentWorld,
-                        blueprints: [...parentWorld.blueprints, savedBlueprint]
+                        blueprints: [...(parentWorld.blueprints || []), savedBlueprint]
+                    });
+                }
+                else {
+                    // If the blueprint already exists, update it in the parent world
+                    setParentWorld({
+                        ...parentWorld,
+                        blueprints: parentWorld.blueprints.map(bp => ((bp.id === savedBlueprint.id) ? savedBlueprint : bp))
                     });
                 }
             }

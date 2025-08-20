@@ -18,16 +18,18 @@ type ShortTextFieldProps = {
     type?: "text" | "email";
     autoComplete?: string;
     caps?: "start" | "end" | "both" | "none";
+
+    className?: string;
 };
 
-const ShortTextField = ({ value, setValue, prepend, label, placeholder = "", required = true, disabled = false, secure = false, clearable = false, type = "text", autoComplete = "none", caps = "both" }: ShortTextFieldProps) => {
+const ShortTextField = ({ value, setValue, prepend, label, placeholder = "", required = true, disabled = false, secure = false, clearable = false, type = "text", autoComplete = "none", caps = "both", className }: ShortTextFieldProps) => {
     const [hideInput, setHideInput] = useState(secure);
 
     const showRoundedStart = (caps === "start" || caps === "both") && !prepend;
     const showRoundedEnd = (caps === "end" || caps === "both") && !(secure || clearable);
 
     return (
-        <div className="w-100 text-light d-flex flex-column">
+        <div className={`text-light d-flex flex-column ${className}`}>
             {label && (
                 <label className="w-100 ps-2 pb-2 my-auto text-start">
                     {label}

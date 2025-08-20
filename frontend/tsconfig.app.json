@@ -15,7 +15,6 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    // ✅ ADD THIS BLOCK
     "baseUrl": ".",  
     "paths": {
       "@/*": ["src/*"],

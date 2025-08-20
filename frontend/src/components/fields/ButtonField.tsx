@@ -18,26 +18,24 @@ type ButtonFieldProps = {
 
 const ButtonField = ({ onClick, loading = false, disabled = false, type = "button", color = "primary", outlineVariant = false, rounding = "pill", caps = "both", className = "", children }: ButtonFieldProps) => {
     return (
-        <div className="w-100 text-light d-flex flex-column">
-            <button
-                onClick={onClick}
-                disabled={disabled || loading}
-                className={[
-                    "w-100 d-flex flex-row align-items-center gap-0 my-auto",
-                    "btn",
-                    `btn-${outlineVariant ? "outline-" : ""}${color}`,
-                    className,
-                    (caps === "start" || caps === "both") ? `rounded-start-${rounding}` : "rounded-start-0",
-                    (caps === "end" || caps === "both") ? `rounded-end-${rounding}` : "rounded-end-0",
-                ].join(" ")}
-                type={type}
-            >
-                <div className="w-100 d-flex flex-row justify-content-center align-items-center gap-2">
-                    {children}
-                    {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
-                </div>
-            </button>
-        </div>
+        <button
+            onClick={onClick}
+            disabled={disabled || loading}
+            className={[
+                "d-flex flex-row align-items-center gap-0 my-auto",
+                "btn",
+                `btn-${outlineVariant ? "outline-" : ""}${color}`,
+                className,
+                (caps === "start" || caps === "both") ? `rounded-start-${rounding}` : "rounded-start-0",
+                (caps === "end" || caps === "both") ? `rounded-end-${rounding}` : "rounded-end-0",
+            ].join(" ")}
+            type={type}
+        >
+            <div className="w-100 d-flex flex-row justify-content-center align-items-center gap-2">
+                {children}
+                {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
+            </div>
+        </button>
     );
 };
 

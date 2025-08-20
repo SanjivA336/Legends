@@ -63,7 +63,7 @@ export default function WorldLibrary() {
 
     return (
         <div className="w-100 h-100 d-flex flex-column gap-2 align-items-center">
-            <h3>Your Worlds</h3>
+            <h4>Your Worlds</h4>
             <p>Here you can manage your worlds, create new ones, and explore existing worlds.</p>
 
             <hr className="text-light w-100 my-2" />

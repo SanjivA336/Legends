@@ -11,6 +11,7 @@ import MessageBox from "@/components/MessageBox";
 import ButtonField from "@/components/fields/ButtonField";
 import Modal from "@/components/design/Modal";
 import GenericList from "@/features/library/generic/GenericList";
+import TabGroup from "@/components/TabGroup";
 
 import Loading from "@/components/Loading";
 import DropdownField from "@/components/fields/DropdownField";
@@ -19,9 +20,10 @@ type WorldCodexProps = {
     world: WorldResponse | null;
     setWorld: (world: WorldResponse) => void;
     loadingWorld?: boolean;
+    setError?: (error: string) => void;
 };
 
-export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodexProps) {
+export default function WorldCodex({ world, setWorld, loadingWorld, setError }: WorldCodexProps) {
 
     const [availableBlueprints, setAvailableBlueprints] = useState<BlueprintResponse[]>([]);
     const [showBlueprintEditor, setShowBlueprintEditor] = useState<boolean>(false);
@@ -41,7 +43,8 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
     const [filteredObjects, setFilteredObjects] = useState<ObjectResponse[]>(world?.objects || []);
     const [blueprintFilter, setBlueprintFilter] = useState<string>("");
 
-    const [error, setError] = useState("");
+    const [currentTab, setCurrentTab] = useState<number>(0);
+    const tabs = ["Contexts", "Blueprints", "Objects"];
 
     const fetchBlueprints = async () => {
         try {
@@ -132,151 +135,165 @@ export default function WorldCodex({ world, setWorld, loadingWorld }: WorldCodex
 
     return (
         <div className="w-100 d-flex flex-column gap-3">
-            <h2 className="text-center">World Codex</h2>
             {loadingWorld ? (
                 <div className="w-100 d-flex flex-column align-items-center p-3">
                     <Loading />
                 </div>
             ) : (
                 <>
-                    
+                    <TabGroup
+                        tabNumber={currentTab}
+                        setTabNumber={setCurrentTab}
+                        tabNames={tabs}
+                        orientation="horizontal"
+                        rounding="3"
+                        className="w-100"
+                    />
+
+                    <hr className="my-1"/>
+
                     {/* Contexts */}
-                    <div className="w-100 h-100 d-flex bg-darker p-4 border-darkish rounded-4 flex-column align-items-center justify-content-start gap-2">
+                    {currentTab === 0 && (
+                        <div className="w-100 d-flex bg-darker p-3 border-darkish rounded-4 flex-column align-items-center justify-content-start gap-2">
 
-                        <h3 className="text-center text-nowrap">Contexts</h3>
+                            <h3 className="w-100 px-2 text-start text-nowrap">Contexts</h3>
 
-                        <GenericList<ContextResponse>
-                            itemName="context"
-                            items={world?.contexts || []}
-                            openCreator={() => {setShowContextEditor(true); setCurrentContext(null)}}
-                            openEditor={(context) => {setShowContextEditor(true); setCurrentContext(context);}}
-                            renderDetails={contextRenderDetails}
-                            search
-                            getItemName={(context) => context.name}
-                            defaultLimit={8}
-                            defaultView="grid"
-                            pagination
-                        />
+                            <GenericList<ContextResponse>
+                                itemName="context"
+                                items={world?.contexts || []}
+                                openCreator={() => {setShowContextEditor(true); setCurrentContext(null)}}
+                                openEditor={(context) => {setShowContextEditor(true); setCurrentContext(context);}}
+                                renderDetails={contextRenderDetails}
+                                search
+                                getItemName={(context) => context.name}
+                                defaultLimit={8}
+                                defaultView="grid"
+                                pagination
+                            />
 
-                        {/* Context Editor */}
-                        <ContextEditor
-                            showEditor={showContextEditor}
-                            setShowEditor={setShowContextEditor}
-                            context={currentContext || undefined}
-                            setContext={setCurrentContext}
-                            parentWorld={world}
-                            setParentWorld={setWorld}
-                        />
+                            {/* Context Editor */}
+                            <ContextEditor
+                                showEditor={showContextEditor}
+                                setShowEditor={setShowContextEditor}
+                                context={currentContext || undefined}
+                                setContext={setCurrentContext}
+                                parentWorld={world}
+                                setParentWorld={setWorld}
+                            />
 
-                    </div>
+                        </div>
+                    )}
 
                     {/* Blueprints */}
-                    <div className="w-100 h-100 d-flex bg-darker p-4 border-darkish rounded-4 flex-column align-items-center justify-content-start gap-2">
+                    {currentTab === 1 && (
+                        <div className="w-100 d-flex bg-darker p-3 border-darkish rounded-4 flex-column align-items-center justify-content-start gap-2">
 
-                        <h3 className="text-center text-nowrap">Blueprints</h3>
+                            <h3 className="w-100 px-2 text-start text-nowrap">Blueprints</h3>
 
-                        <GenericList<BlueprintResponse>
-                            itemName="blueprint"
-                            items={world?.blueprints || []}
-                            openCreator={openBlueprintCreator}
-                            openEditor={openBlueprintEditor}
-                            renderDetails={blueprintRenderDetails}
-                            search
-                            getItemName={(blueprint) => blueprint.name}
-                            defaultLimit={8}
-                            defaultView="grid"
-                            pagination
-                        >
-                            <ButtonField
-                                onClick={() => setShowBlueprintSelector(true)}
-                                className="p-2 text-nowrap">
-                                Link Existing
-                            </ButtonField>
-                        </GenericList>
+                            <GenericList<BlueprintResponse>
+                                itemName="blueprint"
+                                items={world?.blueprints || []}
+                                openCreator={openBlueprintCreator}
+                                openEditor={openBlueprintEditor}
+                                renderDetails={blueprintRenderDetails}
+                                search
+                                getItemName={(blueprint) => blueprint.name}
+                                defaultLimit={8}
+                                defaultView="grid"
+                                pagination
+                            >
+                                <ButtonField
+                                    onClick={() => setShowBlueprintSelector(true)}
+                                    className="px-3 py-2 text-nowrap">
+                                    Link Existing
+                                </ButtonField>
+                            </GenericList>
 
-                        {/* Blueprint Editor */}
-                        <BlueprintEditor
-                            showEditor={showBlueprintEditor}
-                            setShowEditor={setShowBlueprintEditor}
-                            blueprint_id={currentBlueprintID}
-                            refresh={fetchBlueprints}
-                            parentWorld={world}
-                            setParentWorld={setWorld}
-                        />
+                            {/* Blueprint Editor */}
+                            <BlueprintEditor
+                                showEditor={showBlueprintEditor}
+                                setShowEditor={setShowBlueprintEditor}
+                                blueprint_id={currentBlueprintID}
+                                refresh={fetchBlueprints}
+                                parentWorld={world}
+                                setParentWorld={setWorld}
+                            />
 
-                        {/* Blueprint Selector */}
-                        <Modal
-                            title="Link Blueprint"
-                            showModal={showBlueprintSelector}
-                            setShowModal={setShowBlueprintSelector}
-                            onClose={() => setHighlightedBlueprint(null)}>
+                            {/* Blueprint Selector */}
+                            <Modal
+                                title="Link Blueprint"
+                                showModal={showBlueprintSelector}
+                                setShowModal={setShowBlueprintSelector}
+                                onClose={() => setHighlightedBlueprint(null)}>
 
-                            <h1 className="text-center my-3">Select a Blueprint</h1>
+                                <h1 className="text-center my-3">Select a Blueprint</h1>
 
-                            <ButtonField
-                                onClick={addBlueprint}
-                                loading={loadingBlueprints}
-                                disabled={highlightedBlueprint === null}
-                                >
-                                    <h4 className="m-0">Link Blueprint</h4>
-                            </ButtonField>
-
-                            <div className="w-100 bg-darkest p-3 rounded-4">
-                                <GenericList<BlueprintResponse>
-                                    itemName="blueprint"
-                                    items={availableBlueprints.filter(blueprint => !world?.blueprints.some(b => b.id === blueprint.id))}
-                                    refresh={fetchBlueprints}
-                                    renderDetails={blueprintRenderDetails}
+                                <ButtonField
+                                    onClick={addBlueprint}
                                     loading={loadingBlueprints}
-                                    search
-                                    getItemName={(blueprint) => blueprint.name}
-                                    viewSelector
-                                    pagination
-                                    highlighted={highlightedBlueprint}
-                                    setHighlighted={setHighlightedBlueprint}
-                                />
-                            </div>
-                        </Modal>
-                    </div>
+                                    disabled={highlightedBlueprint === null}
+                                    >
+                                        <h4 className="m-0">Link Blueprint</h4>
+                                </ButtonField>
+
+                                <div className="w-100 bg-darkest p-3 rounded-4">
+                                    <GenericList<BlueprintResponse>
+                                        itemName="blueprint"
+                                        items={availableBlueprints.filter(blueprint => !world?.blueprints.some(b => b.id === blueprint.id))}
+                                        refresh={fetchBlueprints}
+                                        renderDetails={blueprintRenderDetails}
+                                        loading={loadingBlueprints}
+                                        search
+                                        getItemName={(blueprint) => blueprint.name}
+                                        viewSelector
+                                        pagination
+                                        highlighted={highlightedBlueprint}
+                                        setHighlighted={setHighlightedBlueprint}
+                                    />
+                                </div>
+                            </Modal>
+                        </div>
+                    )}
 
                     {/* Objects */}
-                    <div className="w-100 h-100 d-flex bg-darker p-4 border-darkish rounded-4 flex-column align-items-center justify-content-start gap-2">
+                    {currentTab === 2 && (
+                        <div className="w-100 d-flex bg-darker p-3 border-darkish rounded-4 flex-column align-items-center justify-content-start gap-2">
 
-                        <h3 className="text-center text-nowrap">Objects</h3>
+                            <h3 className="w-100 px-2 text-start text-nowrap">Objects</h3>
 
-                        <GenericList<ObjectResponse>
-                            itemName="object"
-                            items={world?.objects || []}
-                            openCreator={() => {setShowObjectEditor(true); setCurrentObject(null)}}
-                            openEditor={(object) => {setShowObjectEditor(true); setCurrentObject(object);}}
-                            renderDetails={objectRenderDetails}
-                            search
-                            getItemName={(object) => object.name}
-                            defaultLimit={8}
-                            defaultView="grid"
-                            pagination
-                        >
-                            <DropdownField
-                                value={blueprintFilter}
-                                setValue={setBlueprintFilter}
-                                prepend="Blueprint"
-                                options={[...world?.blueprints || [], { id: "", name: "None" }]}
-                                optionValue={(blueprint) => (blueprint.id)}
-                                optionLabel={(blueprint) => (blueprint.name)}
+                            <GenericList<ObjectResponse>
+                                itemName="object"
+                                items={world?.objects || []}
+                                openCreator={() => {setShowObjectEditor(true); setCurrentObject(null)}}
+                                openEditor={(object) => {setShowObjectEditor(true); setCurrentObject(object);}}
+                                renderDetails={objectRenderDetails}
+                                search
+                                getItemName={(object) => object.name}
+                                defaultLimit={8}
+                                defaultView="grid"
+                                pagination
+                            >
+                                <DropdownField
+                                    value={blueprintFilter}
+                                    setValue={setBlueprintFilter}
+                                    prepend="Blueprint"
+                                    options={[...world?.blueprints || [], { id: "", name: "None" }]}
+                                    optionValue={(blueprint) => (blueprint.id)}
+                                    optionLabel={(blueprint) => (blueprint.name)}
+                                />
+                            </GenericList>
+
+                            {/* Context Editor */}
+                            <ObjectEditor
+                                showEditor={showObjectEditor}
+                                setShowEditor={setShowObjectEditor}
+                                object={currentObject || undefined}
+                                setObject={setCurrentObject}
+                                parentWorld={world}
+                                setParentWorld={setWorld}
                             />
-                        </GenericList>
-
-                        {/* Context Editor */}
-                        <ObjectEditor
-                            showEditor={showObjectEditor}
-                            setShowEditor={setShowObjectEditor}
-                            object={currentObject || undefined}
-                            setObject={setCurrentObject}
-                            parentWorld={world}
-                            setParentWorld={setWorld}
-                        />
-
-                    </div>
+                        </div>
+                    )}
                 </>
             )}
         </div>

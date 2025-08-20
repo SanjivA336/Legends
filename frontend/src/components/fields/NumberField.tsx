@@ -18,9 +18,11 @@ type NumberFieldProps = {
     max?: number;
 
     caps?: "start" | "end" | "both" | "none";
+
+    className?: string;
 };
 
-const NumberField = ({ value, setValue, prepend, label, placeholder = "", required = true, disabled = false, incrementer=false, min, max, caps = "both" }: NumberFieldProps) => {
+const NumberField = ({ value, setValue, prepend, label, placeholder = "", required = true, disabled = false, incrementer=false, min, max, caps = "both", className }: NumberFieldProps) => {
     const [hideInput, setHideInput] = useState(false);
 
     const showRoundedStart = (caps === "start" || caps === "both") && !prepend;
@@ -46,7 +48,7 @@ const NumberField = ({ value, setValue, prepend, label, placeholder = "", requir
     }, [value, min, max, setValue]);
 
     return (
-        <div className="w-100 text-light d-flex flex-column">
+        <div className={`text-light d-flex flex-column ${className}`}>
             {label && (
                 <label className="w-100 ps-2 pb-2 my-auto text-start">
                     {label}

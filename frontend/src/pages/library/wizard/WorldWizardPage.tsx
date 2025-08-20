@@ -21,6 +21,10 @@ export default function WorldWizardPage() {
     const [error, setError] = useState<string>("");
     const [currentTab, setCurrentTab] = useState<number>(0);
 
+    const tabs = id === "new" ? ["Display", "Settings", "Codex", "Finish"] : ["Display", "Settings", "Codex"];
+    const title = `${id === "new" ? "Create World: " : "Edit World: "} ${world?.name || ""}`;
+    const [isDirty, setIsDirty] = useState<boolean>(false);
+
     async function fetchData() {
         try {
             setLoading(true);
@@ -37,6 +41,19 @@ export default function WorldWizardPage() {
     useEffect(() => {
         fetchData();
     }, [id]);
+
+    useEffect(() => {
+        if (world) {
+            setIsDirty(
+                world.name !== oldWorld?.name ||
+                world.description !== oldWorld?.description ||
+                JSON.stringify(world.settings) !== JSON.stringify(oldWorld?.settings) ||
+                JSON.stringify(world.contexts) !== JSON.stringify(oldWorld?.contexts) ||
+                JSON.stringify(world.objects) !== JSON.stringify(oldWorld?.objects) ||
+                JSON.stringify(world.blueprints.map(bp => bp.id).sort()) !== JSON.stringify(oldWorld?.blueprints.map(bp => bp.id).sort())
+            );
+        }
+    }, [world, oldWorld]);
 
     const handleSave = async (route?: string) => {
         try {
@@ -83,10 +100,20 @@ export default function WorldWizardPage() {
         }
     };
 
+    const handleReset = () => {
+        if (oldWorld) {
+            setWorld({
+                ...oldWorld,
+                blueprints: world?.blueprints || oldWorld.blueprints
+            });
+        }
+        setError("");
+    };
+
     return (
-        <DetailLayout title={id === "new" ? "Create World" : "Edit World"} tabs={id === "new" ? ["Display", "Settings", "Codex", "Finish"] : ["Display", "Settings", "Codex"]} currentTab={currentTab} setCurrentTab={setCurrentTab}>
-            <div className="w-100 h-100 d-flex flex-column gap-2 align-items-center">
-                <div className="w-100 h-100 d-flex flex-column gap-3 px-4">
+        <DetailLayout title={title} tabs={tabs} currentTab={currentTab} setCurrentTab={setCurrentTab} onSave={handleSave} onReset={handleReset} onExit={() => navigate("/library/worlds")} isDirty={isDirty} isLoading={loading}>
+            <div className="w-100 d-flex flex-column">
+                <div className="w-100 d-flex flex-column">
                     {currentTab === 0 && (
                         <WorldDisplay world={world} setWorld={setWorld} loadingWorld={loading} />
                     )}
@@ -101,45 +128,6 @@ export default function WorldWizardPage() {
                     )}
 
                     {error && <MessageBox error={error} />}
-                </div>  
-
-                <div className="w-100 my-3">
-                    {id === "new" ? (
-                        <div className="w-100 d-flex flex-row justify-content-between">
-                            {currentTab === 0 ? (
-                                <button className="w-25 btn btn-danger" onClick={() => navigate("/library/worlds")} disabled={loading}>
-                                    Cancel
-                                    {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
-                                </button>
-                            ) : (
-                                <button className="w-25 btn btn-dark" onClick={() => setCurrentTab(currentTab - 1)} disabled={loading}>
-                                    Previous
-                                    {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
-                                </button>
-                            )}
-
-                            {currentTab === 3 ? (
-                                null
-                            ) : (
-                                <button className="w-25 btn btn-dark" onClick={() => setCurrentTab(currentTab + 1)} disabled={loading}>
-                                    Next
-                                    {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
-                                </button>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="w-100 d-flex flex-row justify-content-between">
-                            <button className="w-25 btn btn-danger" onClick={() => navigate("/library/worlds")} disabled={loading}>
-                                Cancel
-                                {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
-                            </button>
-
-                            <button className="w-25 btn btn-primary" onClick={() => handleSave()} disabled={loading}>
-                                Save
-                                {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
-                            </button>
-                        </div>
-                    )}
                 </div>
             </div>
         </DetailLayout>

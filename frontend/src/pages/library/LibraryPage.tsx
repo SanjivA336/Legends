@@ -32,6 +32,9 @@ export default function LibraryPage() {
     return (
         <BaseLayout>
             <div className="d-flex flex-column gap-3 w-100 h-100">
+
+                <h1 className="text-center text-light m-0 p-4">Your Library</h1>
+
                 <TabGroup
                     tabNumber={currentTab}
                     setTabNumber={setCurrentTab}
