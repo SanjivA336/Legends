@@ -1,14 +1,22 @@
 import { useNavigate } from "react-router-dom";
-import { logout } from "@apis/auth_api";
-import React from "react";
+import { useState } from "react";
 
-import Logo from "@assets/brand/LogoAccent.png";
-export const NAVBAR_HEIGHT = "70px";
+import { useToast } from "@/contexts/toasts/ToastContextValue";
+import { getError } from "@/utils/utilities";
+import { useAuth } from "@/contexts/auth/AuthContextValue";
+import { useStash } from "@/contexts/stash/StashContextValue";
+export const NAVBAR_HEIGHT = "60px";
 
-const Navbar = () => {
+type NavbarProps = {
+    stashActive?: boolean;
+};
+
+const Navbar = ({ stashActive = true }: NavbarProps) => {
     const navigate = useNavigate();
-
-    const [loading, setLoading] = React.useState(false);
+    const toast = useToast();
+    const { setActiveStash } = useStash();
+    const { logout } = useAuth();
+    const [loading, setLoading] = useState(false);
 
     const handleLogout = async () => {
         if (loading) return;
@@ -18,8 +26,8 @@ const Navbar = () => {
         try {
             await logout();
             window.location.reload();
-        } catch (err: any) {
-            console.error(err);
+        } catch (error) {
+            toast('danger', getError(error));
         }
         finally {
             setLoading(false);
@@ -28,31 +36,83 @@ const Navbar = () => {
 
     return (
         <>
-            <div className="w-100 px-4 bg-dark d-flex flex-row justify-content-between fixed-top" style={{ height: NAVBAR_HEIGHT }}>
+            <div className={`w-full p-4 bg-foreground flex justify-between items-center fixed top-0`} style={{ height: NAVBAR_HEIGHT }}>
                 {/* Navbar Start */}
-                <div className="d-flex align-items-start h-100">
-                    <img src={Logo} className="h-50 my-auto me-2" onClick={() => navigate("/")}/>
-                    <h1 className="text-light my-auto" onClick={() => navigate("/")}>Legends</h1>
+                <div className="flex gap-2 items-start justify-center">
+                    <h1 
+                        className="text-text text-3xl font-bold my-auto pe-3" 
+                        onClick={() => navigate("/storages")}
+                    >
+                        Stasher
+                    </h1>
+
+                    <button
+                        className="whitespace-nowrap px-3 py-2 rounded-lg flex flex-row justify-between text-text bg-transparent hover:bg-accent hover:scale-105 transition-all duration-200"
+                        onClick={() => { navigate("/stashes"); setActiveStash(null); }}
+                        disabled={loading}
+                    >
+                        My Stashes
+                    </button>
+
+                    <button
+                        className="whitespace-nowrap px-3 py-2 rounded-lg flex flex-row justify-between text-text bg-transparent hover:bg-accent hover:scale-105 transition-all duration-200"
+                        onClick={() => { navigate("/profile"); }}
+                        disabled={loading}
+                    >
+                        Profile
+                    </button>
                 </div>
 
                 {/* Navbar End */}
-                <div className="d-flex gap-2 align-items-end">
-                    <button className="btn btn-dark px-3 my-auto" onClick={() => navigate("/")} disabled={loading}>
-                        Home
-                    </button>
-                    <button className="btn btn-dark px-3 my-auto" onClick={() => navigate("/library")} disabled={loading}>
-                        Library
-                    </button>
-                    <button className="btn btn-dark px-3 my-auto" onClick={() => navigate("/account")} disabled={loading}>
-                        Account
-                    </button>
-                    <button className="btn btn-outline-danger px-3 my-auto" onClick={() => handleLogout()} disabled={loading}>
+                <div className="flex gap-2 items-end justify-center">
+                    {stashActive && (
+                        <>
+                            <button
+                                className="whitespace-nowrap px-3 py-2 rounded-lg flex flex-row justify-between text-text bg-transparent hover:bg-border hover:scale-105 hover:text-text transition-all duration-200"
+                                onClick={() => { navigate("/storages"); }}
+                                disabled={loading}
+                            >
+                                Storages
+                            </button>
+
+                            <button
+                                className="whitespace-nowrap px-3 py-2 rounded-lg flex flex-row justify-between text-text bg-transparent hover:bg-border hover:scale-105 hover:text-text transition-all duration-200"
+                                onClick={() => { navigate("/labels"); }}
+                                disabled={loading}
+                            >
+                                Labels
+                            </button>
+
+                            <button
+                                className="whitespace-nowrap px-3 py-2 rounded-lg flex flex-row justify-between text-text bg-transparent hover:bg-border hover:scale-105 hover:text-text transition-all duration-200"
+                                onClick={() => { navigate("/history"); }}
+                                disabled={loading}
+                            >
+                                History
+                            </button>
+
+                            <button
+                                className="whitespace-nowrap px-3 py-2 rounded-lg flex flex-row justify-between text-text bg-transparent hover:bg-border hover:scale-105 hover:text-text transition-all duration-200"
+                                onClick={() => { navigate("/settings"); }}
+                                disabled={loading}
+                            >
+                                Settings
+                            </button>
+                        </>
+                    )}
+
+                    <button
+                        className="whitespace-nowrap px-3 py-2 rounded-lg flex flex-row justify-between text-danger border-2 border-danger/50 bg-transparent hover:bg-danger hover:scale-105 hover:border-danger hover:text-text transition-all duration-200"
+                        onClick={handleLogout}
+                        disabled={loading}
+                    >
                         Logout
-                        {loading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
                     </button>
                 </div>
             </div>
-            <div className="mb-2" style={{ height: NAVBAR_HEIGHT }}></div> {/* Spacer for fixed navbar */}
+
+            {/* Spacer to prevent content behind navbar */}
+            <div style={{ height: NAVBAR_HEIGHT }}></div>
         </>
     );
 };

@@ -1,14 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-
-import './custom.scss';
+import Router from './Router.tsx'
+import './style.css'
+import { ToastProvider } from '@contexts/toasts/ToastContext.tsx'
 
 
 createRoot(document.getElementById('root')!).render(
-  <div className="w-100 h-100">
-    <StrictMode>
-      <App />
-    </StrictMode>
-  </div>
+  <StrictMode>
+      <Router />
+  </StrictMode>,
 )
