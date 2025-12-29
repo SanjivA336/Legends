@@ -4,9 +4,13 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from enum import Enum
 
-# === Base ===
+# === === Utility === ===
+def generate_id(prefix: str = "") -> str:
+    return f"{prefix}_{str(uuid.uuid4())[:8]}"
+
+# === === Base === ===
 class BaseDocument(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -21,585 +25,822 @@ class BaseDocument(BaseModel):
             if old_val != new_val:
                 changes[field] = (old_val, new_val)
         return changes
-    
-# === User ===
+
+# === === Identification Models === ===
 class User(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("USR"))
     email: EmailStr
     username: str
     password_hashed: str
-    member_ids: List[str] = Field(default_factory=list)
-    
-    def get_all_members(self) -> List['Member']:
-        from backend.database import REPO
-        members = REPO.MEMBERS.query([("owner_user_id", "==", self.id)])
+    member_ids: List[str] = Field(default_factory=list) # IDs of Member documents
+    world_ids: List[str] = Field(default_factory=list) # IDs of World documents
+    campaign_ids: List[str] = Field(default_factory=list) # IDs of Campaign documents
+
+    def get_members(self) -> List['Member']:
+        from backend.database.repos import member_repo
+        members = []
+        for id in self.member_ids:
+            member = member_repo.get(id)
+            if member is not None:
+                members.append(member)
         return members
     
-    def get_active_members(self) -> List['Member']:
-        from backend.database import REPO
-        members = REPO.MEMBERS.query([("owner_user_id", "==", self.id), ("is_active", "==", True)])
-        return members
-    
-    def get_all_stashes(self) -> List['Stash']:
-        from backend.database import REPO
-        members = self.get_all_members()
-        stash_ids = list(set(member.stash_id for member in members))
-        stashes = REPO.STASHES.query([("id", "in", stash_ids)]) if stash_ids else []
-        return stashes
-    
-    def get_active_stashes(self) -> List['Stash']:
-        from backend.database import REPO
-        members = self.get_active_members()
-        stash_ids = list(set(member.stash_id for member in members))
-        stashes = REPO.STASHES.query([("id", "in", stash_ids)]) if stash_ids else []
-        return stashes
-    
-    def purge(self, batch):
+    def get_worlds(self) -> List['World']:
+        from backend.database.repos import world_repo
+        worlds = []
+        for wid in self.world_ids:
+            world = world_repo.get(wid)
+            if world is not None:
+                worlds.append(world)
+        return worlds
+
+    def get_campaigns(self) -> List['Campaign']:
+        from backend.database.repos import campaign_repo
+        campaigns = []
+        for cid in self.campaign_ids:
+            campaign = campaign_repo.get(cid)
+            if campaign is not None:
+                campaigns.append(campaign)
+        return campaigns        
+
+    def delete(self, batch):
         from backend.database import fs, REPO
 
         if REPO.USERS.get(self.id) is None:
-            raise ValueError("User does not exist.")
+            raise ValueError("User does not exist in repository.")
 
         _batch = batch if batch else fs.create_batch()
 
-        members = self.get_all_members()
+        members = self.get_members()
         for member in members:
             member.is_active = False
-            member.owner_user_id = None
+            member.user_id = None
             REPO.MEMBERS.batch_update(_batch, member)
 
         REPO.USERS.batch_delete(_batch, self.id)
 
         return _batch
 
-# === Member ===
 class Member(BaseDocument):
-    owner_user_id: Optional[str] = None
-    stash_id: str
-    nickname: str
-    debts: dict[str, float] = Field(default_factory=dict)  # {member_id: amount_owed}
+    id: str = Field(default_factory=lambda: generate_id("MBR"))
+    user_id: Optional[str] = None # ID of the associated User document; No user_id + is_active means AI Controlled member
+    campaign_id: str # ID of the Campaign document
     is_admin: bool = False
-    is_active: bool = True
-    
-    def get_owner(self) -> Optional[User]:
-        from backend.database import REPO
-        user = REPO.USERS.get(self.owner_user_id) if self.owner_user_id else None
-        return user
-    
-    def get_stash(self) -> Optional['Stash']:
-        from backend.database import REPO
-        stash = REPO.STASHES.get(self.stash_id)
-        return stash
-    
-    def get_debt(self, member: 'Member | str') -> float:
-        if isinstance(member, Member):
-            return self.debts.get(member.id, 0.0)
-        
-        return self.debts.get(member, 0.0)
-    
-    def set_debt(self, member: 'Member | str', amount: float) -> None:
-        if isinstance(member, Member):
-            self.debts[member.id] = amount
-        else:
-            self.debts[member] = amount
-    
-    def get_bought_items(self) -> List['Item']:
-        from backend.database import REPO
-        items = REPO.ITEMS.query([("buyer_member_id", "==", self.id)])
-        return items
-    
-    def get_used_items(self) -> List['Item']:
-        from backend.database import REPO
-        items = REPO.ITEMS.query([("allowed_member_usage." + self.id, ">", 0)])
-        return items
-    
-    def get_orders(self) -> List['Order']:
-        from backend.database import REPO
-        orders = REPO.ORDERS.query([("buyer_member_id", "==", self.id)])
-        return orders
-    
-    def get_events(self) -> List['Event']:
-        from backend.database import REPO
-        events = REPO.EVENTS.query([("member_id", "==", self.id)])
-        return events
+    is_dm: bool = False
+    is_active: bool = False
+    character_id: Optional[str] = None # ID of the Character Object document
+    equipped_ids: List[str] = Field(default_factory=list) # IDs of Object documents in inventory that are equipped
+    inventory_ids: List[str] = Field(default_factory=list) # IDs of Object documents in inventory (not equipped)
 
-    def purge(self, batch, deleter_id: Optional[str]):
+    def get_user(self) -> Optional[User]:
+        from backend.database.repos import user_repo
+        if self.user_id:
+            return user_repo.get(self.user_id)
+        return None
+    
+    def get_campaign(self) -> Optional['Campaign']:
+        from backend.database.repos import campaign_repo
+        return campaign_repo.get(self.campaign_id)
+
+    def get_character(self) -> Optional['Object']:
+        from backend.database.repos import object_repo
+        if self.character_id:
+            return object_repo.get(self.character_id)
+        return None
+    
+    def get_equipped(self) -> List['Object']:
+        from backend.database.repos import object_repo
+        equipped = []
+        for oid in self.equipped_ids:
+            obj = object_repo.get(oid)
+            if obj is not None:
+                equipped.append(obj)
+        return equipped
+    
+    def get_inventory(self) -> List['Object']:
+        from backend.database.repos import object_repo
+        inventory = []
+        for oid in self.inventory_ids:
+            obj = object_repo.get(oid)
+            if obj is not None:
+                inventory.append(obj)
+        return inventory
+    
+    def delete(self, batch):
         from backend.database import fs, REPO
 
         if REPO.MEMBERS.get(self.id) is None:
-            raise ValueError("Member does not exist.")
+            raise ValueError("Member does not exist in repository.")
 
         _batch = batch if batch else fs.create_batch()
 
-        user = self.get_owner()
-        if user:
+        user = self.get_user()
+        if user is not None:
             user.member_ids.remove(self.id)
             REPO.USERS.batch_update(_batch, user)
 
-        stash = self.get_stash()
-        if stash:
-            stash.member_ids.remove(self.id)
-            REPO.STASHES.batch_update(_batch, stash)
-
-        bought_items = REPO.ITEMS.query([("buyer_member_id", "==", self.id)])
-        for item in bought_items:
-            item.buyer_member_id = None
-            REPO.ITEMS.batch_update(_batch, item)
-
-        orders = REPO.ORDERS.query([("buyer_member_id", "==", self.id)])
-        for order in orders:
-            order.buyer_member_id = None
-            REPO.ORDERS.batch_update(_batch, order)
-
-        event = Event(
-            stash_id=self.stash_id,
-            member_id=deleter_id or "",
-            type=EventType.SUCCESS,
-            title=f"Member '{self.nickname}' Deleted",
-            message="This member has been deleted and is no longer active."
-        )
-        REPO.EVENTS.batch_add(_batch, event)
+        campaign = self.get_campaign()
+        if campaign is not None:
+            campaign.member_ids.remove(self.id)
+            REPO.CAMPAIGNS.batch_update(_batch, campaign)
 
         REPO.MEMBERS.batch_delete(_batch, self.id)
-        
+
         return _batch
 
-# === Stash ===
-class Stash(BaseDocument):
+# === === Game Setting Models === ===
+class World(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("WRL"))
     name: str
-    address: Optional[str] = None
-    member_ids: List[str] = Field(default_factory=list)
-    storage_ids: List[str] = Field(default_factory=list)
-    label_ids: List[str] = Field(default_factory=list)
-    join_code: str = Field(default_factory=lambda: uuid.uuid4().hex[:8])
+    description: Optional[str] = None
+    settings: Dict[str, Any] = Field(default_factory=dict)
+    blueprint_ids: List[str] = Field(default_factory=list) # IDs of blueprint Object documents
+    object_ids: List[str] = Field(default_factory=list) # IDs of Object documents
+    context_ids: List[str] = Field(default_factory=list) # IDs of Context documents
+
+    def get_blueprints(self) -> List['Blueprint']:
+        from backend.database.repos import blueprint_repo
+        blueprints = []
+        for bid in self.blueprint_ids:
+            blueprint = blueprint_repo.get(bid)
+            if blueprint is not None:
+                blueprints.append(blueprint)
+        return blueprints
+
+    def get_objects(self) -> List['Object']:
+        from backend.database.repos import object_repo
+        objects = []
+        for oid in self.object_ids:
+            obj = object_repo.get(oid)
+            if obj is not None:
+                objects.append(obj)
+        return objects
+
+    def get_contexts(self) -> List['Context']:
+        from backend.database.repos import context_repo
+        contexts = []
+        for cid in self.context_ids:
+            context = context_repo.get(cid)
+            if context is not None:
+                contexts.append(context)
+        return contexts
     
-    def get_all_members(self) -> List[Member]:
-        from backend.database import REPO
-        members = REPO.MEMBERS.query([("stash_id", "==", self.id)])
-        return members
-    
-    def get_active_members(self) -> List[Member]:
-        from backend.database import REPO
-        members = REPO.MEMBERS.query([("stash_id", "==", self.id), ("is_active", "==", True)])
-        return members
-    
-    def get_all_users(self) -> List[User]:
-        from backend.database import REPO
-        members = self.get_all_members()
-        user_ids = list(set(member.owner_user_id for member in members if member.owner_user_id))
-        users = REPO.USERS.query([("id", "in", user_ids)]) if user_ids else []
-        return users
-    
-    def get_active_users(self) -> List[User]:
-        from backend.database import REPO
-        members = self.get_active_members()
-        user_ids = list(set(member.owner_user_id for member in members if member.owner_user_id))
-        users = REPO.USERS.query([("id", "in", user_ids)]) if user_ids else []
-        return users
-    
-    def get_storages(self) -> List['Storage']:
-        from backend.database import REPO
-        storages = REPO.STORAGES.query([("stash_id", "==", self.id)])
-        return storages
-    
-    def get_labels(self) -> List['Label']:
-        from backend.database import REPO
-        labels = REPO.LABELS.query([("stash_id", "==", self.id)])
-        return labels
-    
-    def get_orders(self) -> List['Order']:
-        from backend.database import REPO
-        orders = REPO.ORDERS.query([("stash_id", "==", self.id)])
-        return orders
-    
-    def get_events(self) -> List['Event']:
-        from backend.database import REPO
-        events = REPO.EVENTS.query([("stash_id", "==", self.id)])
-        return events
-    
-    def get_items(self) -> List['Item']:
-        from backend.database import REPO
-        labels = self.get_labels()
-        label_ids = [label.id for label in labels]
-        items = REPO.ITEMS.query([("label_id", "in", label_ids)]) if label_ids else []
-        return items
-    
-    def purge(self, batch):
+    def delete(self, batch):
         from backend.database import fs, REPO
-        
-        if REPO.STASHES.get(self.id) is None:
-            raise ValueError("stash does not exist.")
+
+        if REPO.WORLDS.get(self.id) is None:
+            raise ValueError("World does not exist in repository.")
 
         _batch = batch if batch else fs.create_batch()
 
-        members = self.get_all_members()
+        blueprints = self.get_blueprints()
+        for blueprint in blueprints:
+            REPO.BLUEPRINTS.batch_delete(_batch, blueprint.id)
+
+        objects = self.get_objects()
+        for obj in objects:
+            REPO.OBJECTS.batch_delete(_batch, obj.id)
+
+        contexts = self.get_contexts()
+        for context in contexts:
+            REPO.CONTEXTS.batch_delete(_batch, context.id)
+
+        REPO.WORLDS.batch_delete(_batch, self.id)
+
+        return _batch
+    
+    def to_campaign(self) -> 'Campaign':
+        return Campaign(
+            world_id=self.id,
+            name=f"Campaign in {self.name}",
+            description=self.description,
+            settings=self.settings.copy(),
+            member_ids=[],
+            blueprint_ids=self.blueprint_ids.copy(),
+            object_ids=self.object_ids.copy(),
+            context_ids=self.context_ids.copy(),
+            quest_ids=[]
+        )
+
+class Campaign(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("CMP"))
+    world_id: Optional[str] = None  # ID of the World document
+    name: str
+    description: Optional[str] = None
+    settings: Dict[str, Any] = Field(default_factory=dict)
+    member_ids: List[str] = Field(default_factory=list)  # IDs of Member documents
+    blueprint_ids: List[str] = Field(default_factory=list)  # IDs of blueprint Object documents
+    object_ids: List[str] = Field(default_factory=list)  # IDs of Object documents
+    context_ids: List[str] = Field(default_factory=list)  # IDs of Context documents
+    quest_ids: List[str] = Field(default_factory=list)  # IDs of Quest documents
+
+    def get_world(self) -> Optional[World]:
+        from backend.database.repos import world_repo
+        if self.world_id:
+            return world_repo.get(self.world_id)
+        return None
+
+    def get_members(self) -> List['Member']:
+        from backend.database.repos import member_repo
+        members = []
+        for mid in self.member_ids:
+            member = member_repo.get(mid)
+            if member is not None:
+                members.append(member)
+        return members
+    
+    def get_blueprints(self) -> List['Blueprint']:
+        from backend.database.repos import blueprint_repo
+        blueprints = []
+        for bid in self.blueprint_ids:
+            blueprint = blueprint_repo.get(bid)
+            if blueprint is not None:
+                blueprints.append(blueprint)
+        return blueprints
+    
+    def get_objects(self) -> List['Object']:
+        from backend.database.repos import object_repo
+        objects = []
+        for oid in self.object_ids:
+            obj = object_repo.get(oid)
+            if obj is not None:
+                objects.append(obj)
+        return objects
+    
+    def get_contexts(self) -> List['Context']:
+        from backend.database.repos import context_repo
+        contexts = []
+        for cid in self.context_ids:
+            context = context_repo.get(cid)
+            if context is not None:
+                contexts.append(context)
+        return contexts
+
+    def get_quests(self) -> List['Quest']:
+        from backend.database.repos import quest_repo
+        quests = []
+        for qid in self.quest_ids:
+            quest = quest_repo.get(qid)
+            if quest is not None:
+                quests.append(quest)
+        return quests
+
+    def delete(self, batch):
+        from backend.database import fs, REPO
+
+        if REPO.CAMPAIGNS.get(self.id) is None:
+            raise ValueError("Campaign does not exist in repository.")
+
+        _batch = batch if batch else fs.create_batch()
+
+        members = self.get_members()
         for member in members:
-            user = member.get_owner()
-            if user:
+            user = member.get_user()
+            if user is not None:
                 user.member_ids.remove(member.id)
                 REPO.USERS.batch_update(_batch, user)
 
             REPO.MEMBERS.batch_delete(_batch, member.id)
 
-        storages = self.get_storages()
-        for storage in storages:
-            REPO.STORAGES.batch_delete(_batch, storage.id)
+        blueprints = self.get_blueprints()
+        for blueprint in blueprints:
+            REPO.BLUEPRINTS.batch_delete(_batch, blueprint.id)
 
-        labels = self.get_labels()
-        for label in labels:
-            items = label.get_items()
-            for item in items:
-                REPO.ITEMS.batch_delete(_batch, item.id)
-            REPO.LABELS.batch_delete(_batch, label.id)
+        objects = self.get_objects()
+        for obj in objects:
+            REPO.OBJECTS.batch_delete(_batch, obj.id)
 
-        orders = self.get_orders()
-        for order in orders:
-            REPO.ORDERS.batch_delete(_batch, order.id)
+        contexts = self.get_contexts()
+        for context in contexts:
+            REPO.CONTEXTS.batch_delete(_batch, context.id)
 
-        events = self.get_events()
-        for event in events:
-            REPO.EVENTS.batch_delete(_batch, event.id)
+        quests = self.get_quests()
+        for quest in quests:
+            REPO.QUESTS.batch_delete(_batch, quest.id)
 
-        REPO.STASHES.batch_delete(_batch, self.id)
-        
+        REPO.CAMPAIGNS.batch_delete(_batch, self.id)
+
         return _batch
 
-# === Storage ===
-class Storage(BaseDocument):
+# === === Content Models === ===
+class AttributeType(str, Enum):
+    STRING = "string"
+    NUMBER = "number"
+    BOOLEAN = "boolean"
+    OBJECT = "object"
+
+class Attribute(BaseModel):
     name: str
-    stash_id: str
-    type: 'StorageType' = Field(default_factory=lambda: StorageType.PANTRY)
+    type: AttributeType
+    values: List[Any] = Field(default_factory=list)
+    options: Optional[List[Any]] = None
+    is_required: bool = False
+    is_list: bool = False
+    is_dropdown: bool = False
+    attribute_binding: Optional[str] = None
+
+class BlueprintBinding(str, Enum):
+    PLAYER_CHARACTER = "pc" # Player Character
+    NON_PLAYER_CHARACTER = "npc" # Non-Player Character
+    RACE = "race" # Species / Race
+    ANIMAL = "animal" # Animals / Creatures
+    FACTION = "faction" # Faction / Organization / Tribe / Kingdom / Squad
+    WEAPON = "weapon" # Weapon
+    ABILITY = "ability" # Ability / Skill / Power
+    ARMOR = "armor" # Armor / Shield
+    ACCESSORY = "accessory" # Accessory / Clothing / Mask
+    TOOL = "tool" # Tool / Gadget
+    CURRENCY = "currency" # Currency
+    CONSUMABLE = "consumable" # Consumable / Potion / Food / Ammunition
+    ITEM = "item" # Item / Miscellaneous
+    STATUS = "status" # Status on Player/Non-Player Character
+    CONDITION = "condition" # Conditions in Environment
+    LOCATION = "location" # Location / Building / Area
+    VEHICLE = "vehicle" # Vehicle / Mount
+
+class Blueprint(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("BLP"))
+    name: str
     description: Optional[str] = None
-    item_ids: List[str] = Field(default_factory=list)
-    ui_settings: 'UISettings' = Field(default_factory=lambda: UISettings())
-    
-    def get_stash(self) -> Optional[Stash]:
-        from backend.database import REPO
-        stash = REPO.STASHES.get(self.stash_id)
-        return stash
-    
-    def get_items(self) -> List['Item']:
-        from backend.database import REPO
-        items = REPO.ITEMS.query([("storage_id", "==", self.id)])
-        return items
-    
-    def get_labels(self) -> List['Label']:
-        from backend.database import REPO
-        entries = REPO.LABELS.query([("default_storage_id", "==", self.id)])
-        return entries
+    blueprint_binding: Optional[BlueprintBinding] = None
+    attributes: List[Attribute] = Field(default_factory=list)
 
-    def purge(self, batch, deleter_id: Optional[str]):
-        from backend.database import fs, REPO
-
-        if REPO.STORAGES.get(self.id) is None:
-            raise ValueError("Storage does not exist.")
-        
-        items = self.get_items()
-        if items:
-            raise ValueError("Cannot delete storage with associated items.")
-
-        labels = REPO.LABELS.query([("default_storage_id", "==", self.id)])
-        if labels:
-            raise ValueError("Cannot delete storage that is set as default in a label.")
-
-        _batch = batch if batch else fs.create_batch()
-
-        stash = self.get_stash()
-        if stash:
-            if len(stash.storage_ids) <= 1:
-                raise ValueError("Stash must have at least one storage.")
-            
-            stash.storage_ids.remove(self.id)
-            REPO.STASHES.batch_update(_batch, stash)
-
-            event = Event(
-                stash_id=stash.id,
-                member_id=deleter_id or "",
-                type=EventType.SUCCESS,
-                title=f"Storage '{self.name}' Deleted",
-                message="This storage has been deleted and is no longer active."
-            )
-            REPO.EVENTS.batch_add(_batch, event)
-
-        REPO.STORAGES.batch_delete(_batch, self.id)
-
-        return _batch
-    
-class StorageType(str, Enum):
-    FRIDGE = "Fridge"
-    FREEZER = "Freezer"
-    PANTRY = "Pantry"
-    GARDEN = "Garden"
-    OTHER = "Other"
-
-class UISettings(BaseModel):
-    x: int = 0
-    y: int = 0
-    w: int = 1
-    h: int = 1
-    color: str | None = None
-
-# === Label ===
-class Label(BaseDocument):
-    name: str
-    preferred_unit: str
-    stash_id: str
-    default_storage_id: str
-    current_quantity: float = 0.0
-    item_ids: List[str] = Field(default_factory=list)
-    food_group: Optional[str] = None
-    
-    def get_stash(self) -> Optional[Stash]:
-        from backend.database import REPO
-        stash = REPO.STASHES.get(self.stash_id)
-        return stash
-    
-    def get_default_storage(self) -> Optional[Storage]:
-        from backend.database import REPO
-        storage = REPO.STORAGES.get(self.default_storage_id)
-        return storage
-    
-    def get_items(self) -> List['Item']:
-        from backend.database import REPO
-        items = REPO.ITEMS.query([("label_id", "==", self.id)])
-        return items
-
-    def purge(self, batch, deleter_id: Optional[str]):
-        from backend.database import fs, REPO
-
-        if REPO.LABELS.get(self.id) is None:
-            raise ValueError("Label does not exist.")
-        
-        items = self.get_items()
-        if items:
-            raise ValueError("Cannot delete label with associated items.")
-        
-        _batch = batch if batch else fs.create_batch()
-        
-        stash = self.get_stash()
-        if stash:
-            stash.label_ids.remove(self.id)
-            REPO.STASHES.batch_update(_batch, stash)
-
-            event = Event(
-                stash_id=stash.id,
-                member_id=deleter_id or "",
-                type=EventType.SUCCESS,
-                title=f"Label '{self.name}' Deleted",
-                message="This label has been deleted and is no longer active."
-            )
-            REPO.EVENTS.batch_add(_batch, event)
-
-        REPO.LABELS.batch_delete(_batch, self.id)
-
-        return _batch
-    
-# === Item ===
-class Item(BaseDocument):
-    name: str
-    label_id: str
-    storage_id: str
-    buyer_member_id: Optional[str] = None
-    allowed_member_usage: Dict[str, float] = Field(default_factory=dict) # {member_id: amount_used}
-    total_quantity: float = 0
-    current_quantity: float = 0
-    preferred_unit: Optional[str] = None
-    cost: Optional[float] = None
-    expiry_date: Optional[datetime] = None
-    
-    def get_label(self) -> Optional[Label]:
-        from backend.database import REPO
-        label = REPO.LABELS.get(self.label_id)
-        return label
-    
-    def get_storage(self) -> Optional[Storage]:
-        from backend.database import REPO
-        storage = REPO.STORAGES.get(self.storage_id)
-        return storage
-    
-    def get_order(self) -> Optional['Order']:
-        from backend.database import REPO
-        orders = REPO.ORDERS.query([("item_ids", "array_contains", self.id)])
-        return orders[0] if orders else None
-    
-    def get_stash(self) -> Optional[Stash]:
-        label = self.get_label()
-        if label:
-            return label.get_stash()
-        
-        storage = self.get_storage()
-        if storage:
-            return storage.get_stash()
-        
+    def get_attribute(self, name: str) -> Optional[Attribute]:
+        for attr in self.attributes:
+            if attr.name == name:
+                return attr
         return None
     
-    def get_buyer_member(self) -> Optional[Member]:
-        from backend.database import REPO
-        member = REPO.MEMBERS.get(self.buyer_member_id) if self.buyer_member_id else None
-        return member
+    def get_owner(self) -> Optional[World | Campaign]:
+        from backend.database.repos import world_repo, campaign_repo
+        if len(worlds := world_repo.query([("blueprint_ids", "array_contains", self.id)])) > 0:
+            return worlds[0]
+        
+        if len(campaigns := campaign_repo.query([("blueprint_ids", "array_contains", self.id)])) > 0:
+            return campaigns[0]
+        return None
     
-    def get_allowed_members(self) -> List[Member]:
-        from backend.database import REPO
-        members = REPO.MEMBERS.query([("id", "in", list(self.allowed_member_usage.keys()))])
-        return members
-    
-    def get_all_usage(self) -> Dict[Member | None, float]:
-        from backend.database import REPO
-        usage = {}
-        for member_id, amount in self.allowed_member_usage.items():
-            member = REPO.MEMBERS.get(member_id)
-            usage[member] = amount
-        return usage
-    
-    def get_usage(self, member: 'Member | str') -> float:
-        if isinstance(member, Member):
-            return self.allowed_member_usage.get(member.id, 0.0)
-        return self.allowed_member_usage.get(member, 0.0)
-    
-    def set_usage(self, member: 'Member | str', amount: float) -> None:
-        if isinstance(member, Member):
-            self.allowed_member_usage[member.id] = amount
-        else:
-            self.allowed_member_usage[member] = amount
+    def get_objects(self) -> List['Object']:
+        from backend.database.repos import object_repo
+        objects = []
+        for obj in object_repo.query([("blueprint_id", "==", self.id)]):
+            objects.append(obj)
+        return objects
 
-    def purge(self, batch, deleter_id: Optional[str]):
+    def to_object(self) -> 'Object':
+        return Object(
+            blueprint_id=self.id,
+            name=f"New {self.name}",
+            description=None,
+            blueprint_binding=self.blueprint_binding,
+            attributes=self.attributes.copy()
+        )
+    
+    def delete(self, batch):
         from backend.database import fs, REPO
 
-        if REPO.ITEMS.get(self.id) is None:
-            raise ValueError("Item does not exist.")
+        if REPO.BLUEPRINTS.get(self.id) is None:
+            raise ValueError("Blueprint does not exist in repository.")
 
         _batch = batch if batch else fs.create_batch()
 
-        label = self.get_label()
-        if label:
-            if self.id in label.item_ids:
-                label.item_ids.remove(self.id)
-                REPO.LABELS.batch_update(_batch, label)
+        owner = self.get_owner()
 
-        storage = self.get_storage()
-        if storage:
-            if self.id in storage.item_ids:
-                storage.item_ids.remove(self.id)
-                REPO.STORAGES.batch_update(_batch, storage)
+        objects = self.get_objects()
+        for obj in objects:
+            REPO.OBJECTS.batch_delete(_batch, obj.id)
+            if owner is not None:
+                owner.object_ids.remove(obj.id)
 
-        order = self.get_order()
-        if order:
-            order.item_ids.remove(self.id)
-            REPO.ORDERS.batch_update(_batch, order)
+        if owner is not None:
+            owner.blueprint_ids.remove(self.id)
+            if isinstance(owner, Campaign):
+                REPO.CAMPAIGNS.batch_update(_batch, owner)
+            elif isinstance(owner, World):
+                REPO.WORLDS.batch_update(_batch, owner)
 
-        stash = self.get_stash()
-        if stash:
-            event = Event(
-                stash_id=stash.id,
-                member_id=deleter_id or "",
-                type=EventType.SUCCESS,
-                title=f"Item '{self.name}' Deleted",
-                message="This item has been deleted and is no longer active."
-            )
-            REPO.EVENTS.batch_add(_batch, event)
-
-        REPO.ITEMS.batch_delete(_batch, self.id)
+        REPO.BLUEPRINTS.batch_delete(_batch, self.id)
 
         return _batch
 
-# === Order ===
-class Order(BaseDocument):
-    stash_id: str
-    buyer_member_id: Optional[str] = None
-    status: dict[str, 'OrderStatus'] = Field(default_factory=dict) # {attribute: OrderStatus}
-    item_ids: List[str] = Field(default_factory=list)
-    
-    def get_stash(self) -> Optional[Stash]:
-        from backend.database import REPO
-        stash = REPO.STASHES.get(self.stash_id)
-        return stash
-    
-    def get_buyer_member(self) -> Optional[Member]:
-        from backend.database import REPO
-        member = REPO.MEMBERS.get(self.buyer_member_id) if self.buyer_member_id else None
-        return member
-    
-    def get_items(self) -> List[Item]:
-        from backend.database import REPO
-        items = REPO.ITEMS.query([("id", "in", self.item_ids)])
-        return items
-    
-    def get_status_of(self, attribute: str) -> 'OrderStatus':
-        return self.status.get(attribute, OrderStatus.SKIPPED)
-    
-    def set_status_of(self, attribute: str, status: 'OrderStatus') -> None:
-        self.status[attribute] = status
+class Object(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("OBJ"))
+    blueprint_id: str # ID of the associated Blueprint document
+    name: str
+    description: Optional[str] = None
+    blueprint_binding: Optional[BlueprintBinding] = None
+    attributes: List[Attribute] = Field(default_factory=list)
 
-    def purge(self, batch, deleter_id: Optional[str]):
+    def get_blueprint(self) -> Optional[Blueprint]:
+        from backend.database.repos import blueprint_repo
+        if self.blueprint_id:
+            return blueprint_repo.get(self.blueprint_id)
+        return None
+
+    def get_attribute(self, name: str) -> Optional[Attribute]:
+        for attr in self.attributes:
+            if attr.name == name:
+                return attr
+        return None
+    
+    def get_owner(self) -> Optional[World | Campaign]:
+        from backend.database.repos import world_repo, campaign_repo
+        if len(worlds := world_repo.query([("object_ids", "array_contains", self.id)])) > 0:
+            return worlds[0]
+        
+        if len(campaigns := campaign_repo.query([("object_ids", "array_contains", self.id)])) > 0:
+            return campaigns[0]
+        return None
+    
+    def normalize(self) -> bool:
+        blueprint = self.get_blueprint()
+        if blueprint is None:
+            return False
+
+        import copy
+        obj_attr_map = {attr.name: attr for attr in self.attributes}
+        normalized_attrs = []
+
+        for blp_attr in blueprint.attributes:
+            obj_attr = obj_attr_map.get(blp_attr.name)
+            if obj_attr:
+                normalized_attrs.append(obj_attr)
+            else:
+                if blp_attr.is_required:
+                    normalized_attrs.append(copy.deepcopy(blp_attr))
+
+        self.blueprint_binding = blueprint.blueprint_binding
+        self.attributes = normalized_attrs
+
+        return True
+    
+    def delete(self, batch):
         from backend.database import fs, REPO
 
-        if REPO.ORDERS.get(self.id) is None:
-            raise ValueError("Order does not exist.")
+        if REPO.OBJECTS.get(self.id) is None:
+            raise ValueError("Object does not exist in repository.")
 
         _batch = batch if batch else fs.create_batch()
 
-        items = self.get_items()
-        for item in items:
-            if item.current_quantity <= 0:
-                REPO.ITEMS.batch_delete(_batch, item.id)
+        owner = self.get_owner()
+        if owner is not None:
+            owner.object_ids.remove(self.id)
+            if isinstance(owner, Campaign):
+                REPO.CAMPAIGNS.batch_update(_batch, owner)
+            elif isinstance(owner, World):
+                REPO.WORLDS.batch_update(_batch, owner)
 
-        REPO.ORDERS.batch_delete(_batch, self.id)
-        
-        stash = self.get_stash()
-        if stash:
-            event = Event(
-                stash_id=stash.id,
-                member_id=deleter_id or "",
-                type=EventType.SUCCESS,
-                title=f"Order '{self.created_at.date()}' Deleted",
-                message="This order has been deleted and is no longer active."
-            )
-            REPO.EVENTS.batch_add(_batch, event)
+        REPO.OBJECTS.batch_delete(_batch, self.id)
 
         return _batch
 
-class OrderStatus(str, Enum):
-    SKIPPED = "skipped"
-    COMPLETED = "completed"
-    IN_PROGRESS = "in_progress"
+class Context(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("CTX"))
+    name: str
+    content: str
 
-# === Event ===
-class Event(BaseDocument):
-    stash_id: str
-    member_id: str
-    type: 'EventType'
-    title: str
-    message: Optional[str] = ""
+    def get_owner(self) -> Optional[World | Campaign]:
+        from backend.database.repos import world_repo, campaign_repo
+        if len(worlds := world_repo.query([("context_ids", "array_contains", self.id)])) > 0:
+            return worlds[0]
 
-    def get_stash(self) -> Optional[Stash]:
-        from backend.database import REPO
-        stash = REPO.STASHES.get(self.stash_id)
-        return stash
+        if len(campaigns := campaign_repo.query([("context_ids", "array_contains", self.id)])) > 0:
+            return campaigns[0]
+        return None
     
-    def get_member(self) -> Optional[Member]:
-        from backend.database import REPO
-        member = REPO.MEMBERS.get(self.member_id) if self.member_id else None
-        return member
-    
-    def purge(self, batch):
+    def delete(self, batch):
         from backend.database import fs, REPO
-        
+
+        if REPO.CONTEXTS.get(self.id) is None:
+            raise ValueError("Context does not exist in repository.")
+
         _batch = batch if batch else fs.create_batch()
 
-        REPO.EVENTS.batch_delete(_batch, self.id)
-        
+        owner = self.get_owner()
+        if owner is not None:
+            owner.context_ids.remove(self.id)
+            if isinstance(owner, Campaign):
+                REPO.CAMPAIGNS.batch_update(_batch, owner)
+            elif isinstance(owner, World):
+                REPO.WORLDS.batch_update(_batch, owner)
+
+        REPO.CONTEXTS.batch_delete(_batch, self.id)
+
         return _batch
 
-class EventType(str, Enum):
+class Quest(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("QST"))
+    name: str
+    description: Optional[str] = None
+    task: str
+    is_main: bool = False
+    is_active: bool = False
+    is_complete: bool = False
+    parent_id: Optional[str] = None # ID of parent quest
+    children_ids: List[str] = Field(default_factory=list) # IDs of sub-quests
+
+    def get_parent(self) -> Optional['Quest']:
+        from backend.database.repos import quest_repo
+        if self.parent_id:
+            return quest_repo.get(self.parent_id)
+        return None
+
+    def get_children(self) -> List['Quest']:
+        from backend.database.repos import quest_repo
+        children = []
+        for cid in self.children_ids:
+            child = quest_repo.get(cid)
+            if child is not None:
+                children.append(child)
+        return children
+    
+    def get_progress(self) -> float:
+        children = self.get_children()
+        if len(children) == 0:
+            return 1.0 if self.is_complete else 0.0
+        
+        completed = sum(child.get_progress() for child in children)
+
+        return completed / len(children)
+    
+    def get_owner(self) -> Optional[Campaign]:
+        from backend.database.repos import campaign_repo
+        if len(campaigns := campaign_repo.query([("quest_ids", "array_contains", self.id)])) > 0:
+            return campaigns[0]
+        return None
+    
+    def delete(self, batch):
+        from backend.database import fs, REPO
+
+        if REPO.QUESTS.get(self.id) is None:
+            raise ValueError("Quest does not exist.")
+
+        if self.parent_id is not None:
+            raise ValueError("Only root quests may be deleted.")
+
+        _batch = batch if batch else fs.create_batch()
+
+        owner = self.get_owner()
+        if owner and self.id in owner.quest_ids:
+            owner.quest_ids.remove(self.id)
+            REPO.CAMPAIGNS.batch_update(_batch, owner)
+
+        self._delete_subtree(_batch)
+
+        return _batch
+
+    
+    def _delete_subtree(self, batch):
+        from backend.database import REPO
+
+        for child in self.get_children():
+            child._delete_subtree(batch)
+
+        REPO.QUESTS.batch_delete(batch, self.id)
+
+# === === Timeline Models === ===
+class ActionType(str, Enum):
+    # Skip
+    WAIT = "wait"
+
+    # Combat
+    ATTACK = "attack"
+    DEFEND = "defend"
+    DODGE = "dodge"
+
+    # Move
+    MOVE = "move"
+    ADV_MOVE = "adv_move"
+    SNEAK = "sneak"
+
+    # Social
+    PERSUADE = "persuade"
+    INTIMIDATE = "intimidate"
+    ANTAGONIZE = "antagonize"
+    DECEIVE = "deceive"
+
+    # Usage
+    ACTIVATE = "activate"       # using items/tools
+    USE_ITEM = "use_item"       # using consumables
+    CAST = "cast"               # using abilities/spells/powers
+    INTERACT = "interact"       # interacting with NPCs/environment
+    INVESTIGATE = "investigate" # find clues, secrets, traps, ...
+
+    # Misc
+    SIMPLE = "simple"           # uncategorized - straightforward action, valid
+    IMPOSSIBLE = "impossible"   # uncategorized - impossible action, invalid
+
+class ActionStatus(str, Enum):
+    WAITING = "waiting"
+    ROLLING = "rolling"
+    DENIED = "denied"
+    CRIT_FAILURE = "crit_failure"
+    FAILURE = "failure"
     SUCCESS = "success"
-    INFO = "info"
-    WARNING = "warning"
-    DANGER = "danger"
+    CRIT_SUCCESS = "crit_success"
+
+class Action(BaseModel):
+    member_id: str # ID of the member performing the action
+    type: Optional[ActionType] = None
+    intent: str
+    status: ActionStatus = ActionStatus.WAITING 
+    item_ids: List[str] = Field(default_factory=list) # IDs of Object documents used for this action
+    target_ids: List[str] = Field(default_factory=list) # IDs of Object documents targeted
+    requirement: Optional[int] = None # e.g., (0-100) roll needed to succeed; None if automatic success
+
+    def get_member(self) -> Optional[Member]:
+        from backend.database.repos import member_repo
+        return member_repo.get(self.member_id)
+    
+    def get_items(self) -> List[Object]:
+        from backend.database.repos import object_repo
+        items = []
+        for oid in self.item_ids:
+            obj = object_repo.get(oid)
+            if obj is not None:
+                items.append(obj)
+        return items
+
+    def get_targets(self) -> List[Object]:
+        from backend.database.repos import object_repo
+        targets = []
+        for oid in self.target_ids:
+            obj = object_repo.get(oid)
+            if obj is not None:
+                targets.append(obj)
+        return targets
+
+class Scene(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("SCN"))
+    campaign_id: str # ID of the campaign this scene belongs to
+    encounter_id: str # ID of the encounter this scene belongs to
+    content: str
+    summary: Optional[str] = None
+    actions: List[Action] = Field(default_factory=list)
+    minute_time: int # In-game minute (0-1440) timestamp of the scene
+
+    def get_campaign(self) -> Optional[Campaign]:
+        from backend.database.repos import campaign_repo
+        return campaign_repo.get(self.campaign_id)
+    
+    def get_encounter(self) -> Optional['Encounter']:
+        from backend.database.repos import encounter_repo
+        return encounter_repo.get(self.encounter_id)
+    
+    def get_time(self) -> str:
+        hours = self.minute_time // 60
+        minutes = self.minute_time % 60
+        if hours >= 24:
+            hours = hours % 24
+
+        if hours == 0:
+            hours = 12
+            period = "AM"
+        elif hours < 12:
+            period = "AM"
+        else:
+            period = "PM"
+        
+        return f"{hours:02}:{minutes:02} {period}"
+    
+    def delete(self, batch):
+        from backend.database import fs, REPO
+
+        if REPO.SCENES.get(self.id) is None:
+            raise ValueError("Scene does not exist in repository.")
+
+        _batch = batch if batch else fs.create_batch()
+
+        encounter = self.get_encounter()
+        if encounter and self.id in encounter.scene_ids:
+            encounter.scene_ids.remove(self.id)
+            REPO.ENCOUNTERS.batch_update(_batch, encounter)
+
+        REPO.SCENES.batch_delete(_batch, self.id)
+
+        return _batch
+
+class EncounterType(str, Enum):
+    COMBAT = "combat"
+    EXPLORATION = "exploration"
+    SOCIAL = "social"
+    PUZZLE = "puzzle"
+    STORE = "store"
+    TRAVEL = "travel"
+    MISC = "miscellaneous"
+
+class Encounter(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("ENC"))
+    campaign_id: str # ID of the campaign this encounter belongs to
+    chapter_id: str # ID of the chapter this encounter belongs to
+    type: str
+    goal: str
+    length: int
+    scene_ids: List[str] = Field(default_factory=list) # IDs of scenes in this encounter
+    
+    def get_campaign(self) -> Optional[Campaign]:
+        from backend.database.repos import campaign_repo
+        return campaign_repo.get(self.campaign_id)
+    
+    def get_chapter(self) -> Optional['Chapter']:
+        from backend.database.repos import chapter_repo
+        return chapter_repo.get(self.chapter_id)
+
+    def get_scenes(self, limit: int = -1) -> List['Scene']:
+        from backend.database.repos import scene_repo
+        scenes = []
+        if limit == -1:
+            limit = len(self.scene_ids)
+        for sid in self.scene_ids[:limit]:
+            scene = scene_repo.get(sid)
+            if scene is not None:
+                scenes.append(scene)
+        return scenes
+    
+    def get_progress(self) -> float:
+        if self.length == 0:
+            return 0.0
+        return min(len(self.scene_ids) / self.length, 1.0)
+    
+    def delete(self, batch):
+        from backend.database import fs, REPO
+
+        if REPO.ENCOUNTERS.get(self.id) is None:
+            raise ValueError("Encounter does not exist in repository.")
+
+        _batch = batch if batch else fs.create_batch()
+
+        chapter = self.get_chapter()
+        if chapter and self.id in chapter.encounter_ids:
+            chapter.encounter_ids.remove(self.id)
+            REPO.CHAPTERS.batch_update(_batch, chapter)
+
+        scenes = self.get_scenes()
+        for scene in scenes:
+            REPO.SCENES.batch_delete(_batch, scene.id)
+
+        REPO.ENCOUNTERS.batch_delete(_batch, self.id)
+
+        return _batch
+
+class Chapter(BaseDocument):
+    id: str = Field(default_factory=lambda: generate_id("CHP"))
+    campaign_id: str # ID of the campaign this chapter belongs to
+    description: Optional[str] = None
+    encounter_ids: List[str] = Field(default_factory=list) # IDs of encounters in this chapter
+
+    def get_campaign(self) -> Optional[Campaign]:
+        from backend.database.repos import campaign_repo
+        return campaign_repo.get(self.campaign_id)
+    
+    def get_encounters(self, limit: int = -1) -> List['Encounter']:
+        from backend.database.repos import encounter_repo
+        encounters = []
+        if limit == -1:
+            limit = len(self.encounter_ids)
+        for eid in self.encounter_ids[:limit]:
+            encounter = encounter_repo.get(eid)
+            if encounter is not None:
+                encounters.append(encounter)
+        return encounters
+
+    def get_scenes(self, limit: int = -1) -> List['Scene']:
+        scenes = []
+        encounters = self.get_encounters()
+        for encounter in encounters:
+            scenes.extend(encounter.get_scenes(limit))
+            if limit != -1 and len(scenes) >= limit:
+                return scenes[:limit]
+        return scenes[:limit] if limit != -1 else scenes
+    
+    def delete(self, batch):
+        from backend.database import fs, REPO
+
+        if REPO.CHAPTERS.get(self.id) is None:
+            raise ValueError("Chapter does not exist in repository.")
+
+        _batch = batch if batch else fs.create_batch()
+
+        encounters = self.get_encounters()
+        for encounter in encounters:
+            REPO.ENCOUNTERS.batch_delete(_batch, encounter.id)
+            scenes = encounter.get_scenes()
+            for scene in scenes:
+                REPO.SCENES.batch_delete(_batch, scene.id)
+
+        REPO.CHAPTERS.batch_delete(_batch, self.id)
+
+        return _batch
 
 User.model_rebuild()
 Member.model_rebuild()
-Stash.model_rebuild()
-Storage.model_rebuild()
-Label.model_rebuild()
-Item.model_rebuild()
-Order.model_rebuild()
-Event.model_rebuild()
+World.model_rebuild()
+Campaign.model_rebuild()
+Blueprint.model_rebuild()
+Object.model_rebuild()
+Context.model_rebuild()
+Quest.model_rebuild()
+Action.model_rebuild()
+Scene.model_rebuild()
+Encounter.model_rebuild()
+Chapter.model_rebuild()

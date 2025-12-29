@@ -15,6 +15,8 @@ class UserProtected(BaseDocument):
     username: str
     email: EmailStr
     member_ids: List[str] = Field(default_factory=list)
+    world_ids: List[str] = Field(default_factory=list)
+    campaign_ids: List[str] = Field(default_factory=list)
 
     @staticmethod
     def from_model(model: User) -> 'UserProtected':
@@ -25,23 +27,25 @@ class UserProtected(BaseDocument):
             updated_at=model.updated_at,
             username=model.username or UNKNOWN,
             email=model.email,
-            member_ids=model.member_ids or []
+            member_ids=model.member_ids or [],
+            world_ids=model.world_ids or [],
+            campaign_ids=model.campaign_ids or []
         )
         return schema
 
-# === === Payloads === ===
-
-# === Base ===
+# === === Base === ===
 class BasePayload(BaseModel):
     id: Optional[str] = None
 
-# === User ===
+# === === Identification Payloads === ===
 class UserPayload(BasePayload):
     email: Optional[EmailStr] = None
     username: Optional[str] = None
     password_current: Optional[str] = None
     password_new: Optional[str] = None
     member_ids: Optional[List[str]] = None
+    world_ids: Optional[List[str]] = None
+    campaign_ids: Optional[List[str]] = None
 
     def to_model(self, model: User, preserve: bool) -> User:
         update_data = self.model_dump(exclude_unset=True)
@@ -55,168 +59,219 @@ class UserPayload(BasePayload):
                 setattr(model, field, value)
             return model
 
-# === Member ===
 class MemberPayload(BasePayload):
-    owner_user_id: Optional[str] = None
-    stash_id: Optional[str] = None
-    nickname: Optional[str] = None
-    debts: Optional[dict[str, float]] = None # {member_id: amount_owed}
+    user_id: Optional[str] = None
+    campaign_id: Optional[str] = None
     is_admin: Optional[bool] = None
+    is_dm: Optional[bool] = None
     is_active: Optional[bool] = None
+    character_id: Optional[str] = None
+    equipped_ids: Optional[List[str]] = None
+    inventory_ids: Optional[List[str]] = None
 
-    def to_model(self, model: Member, preserve: bool) -> Member:
+    def to_model(self, model: 'Member', preserve: bool) -> 'Member':
         update_data = self.model_dump(exclude_unset=True)
         if preserve:
-            updated_model = model.model_copy(deep=True)
-            for field, value in update_data.items():
-                setattr(updated_model, field, value)
-            return updated_model
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
         else:
-            for field, value in update_data.items():
-                setattr(model, field, value)
+            for k, v in update_data.items():
+                setattr(model, k, v)
             return model
 
-# === Stash ===
-class StashPayload(BasePayload):
+# === Game Setting Payloads ===
+class WorldPayload(BasePayload):
     name: Optional[str] = None
-    address: Optional[str] = None
-    member_ids: Optional[List[str]] = None
-    storage_ids: Optional[List[str]] = None
-    label_ids: Optional[List[str]] = None
-    join_code: Optional[str] = None
-    
-    def to_model(self, model: Stash, preserve: bool) -> Stash:
-        update_data = self.model_dump(exclude_unset=True)
-        if preserve:
-            updated_model = model.model_copy(deep=True)
-            for field, value in update_data.items():
-                setattr(updated_model, field, value)
-            return updated_model
-        else:
-            for field, value in update_data.items():
-                setattr(model, field, value)
-            return model
-
-    
-# === Storage Settings ===
-class StoragePayload(BasePayload):
-    name: Optional[str] = None
-    stash_id: Optional[str] = None
-    type: Optional[StorageType] = StorageType.PANTRY
     description: Optional[str] = None
-    item_ids: Optional[List[str]] = None
-    ui_settings: Optional[UISettings] = None
+    settings: Optional[Dict[str, Any]] = None
+    blueprint_ids: Optional[List[str]] = None
+    object_ids: Optional[List[str]] = None
+    context_ids: Optional[List[str]] = None
 
-    def to_model(self, model: 'Storage', preserve: bool) -> 'Storage':
+    def to_model(self, model: 'World', preserve: bool) -> 'World':
         update_data = self.model_dump(exclude_unset=True)
         if preserve:
-            updated_model = model.model_copy(deep=True)
-            for field, value in update_data.items():
-                setattr(updated_model, field, value)
-            return updated_model
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
         else:
-            for field, value in update_data.items():
-                setattr(model, field, value)
+            for k, v in update_data.items():
+                setattr(model, k, v)
             return model
 
-# === Label ===
-class LabelPayload(BasePayload):
+class CampaignPayload(BasePayload):
+    world_id: Optional[str] = None
     name: Optional[str] = None
-    preferred_unit: Optional[str] = None
-    stash_id: Optional[str] = None
-    default_storage_id: Optional[str] = None
-    current_quantity: Optional[float] = None
-    item_ids: Optional[List[str]] = None
-    food_group: Optional[str] = None
+    description: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+    member_ids: Optional[List[str]] = None
+    blueprint_ids: Optional[List[str]] = None
+    object_ids: Optional[List[str]] = None
+    context_ids: Optional[List[str]] = None
+    quest_ids: Optional[List[str]] = None
 
-    def to_model(self, model: 'Label', preserve: bool) -> 'Label':
+    def to_model(self, model: 'Campaign', preserve: bool) -> 'Campaign':
         update_data = self.model_dump(exclude_unset=True)
         if preserve:
-            updated_model = model.model_copy(deep=True)
-            for field, value in update_data.items():
-                setattr(updated_model, field, value)
-            return updated_model
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
         else:
-            for field, value in update_data.items():
-                setattr(model, field, value)
+            for k, v in update_data.items():
+                setattr(model, k, v)
             return model
 
-# === Item ===
-class ItemPayload(BasePayload):
+# === Content Payloads ===
+class BlueprintPayload(BasePayload):
     name: Optional[str] = None
-    label_id: Optional[str] = None
-    storage_id: Optional[str] = None
-    buyer_member_id: Optional[str] = None
-    allowed_member_usage: Optional[Dict[str, float]] = None
-    total_quantity: Optional[float] = None
-    current_quantity: Optional[float] = None
-    preferred_unit: Optional[str] = None
-    cost: Optional[float] = None
-    expiry_date: Optional[datetime] = None
+    description: Optional[str] = None
+    blueprint_binding: Optional[BlueprintBinding] = None
+    attributes: Optional[List[Attribute]] = None
 
-    def to_model(self, model: 'Item', preserve: bool) -> 'Item':
+    def to_model(self, model: 'Blueprint', preserve: bool) -> 'Blueprint':
         update_data = self.model_dump(exclude_unset=True)
         if preserve:
-            updated_model = model.model_copy(deep=True)
-            for field, value in update_data.items():
-                setattr(updated_model, field, value)
-            return updated_model
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
         else:
-            for field, value in update_data.items():
-                setattr(model, field, value)
+            for k, v in update_data.items():
+                setattr(model, k, v)
             return model
 
-# === Order ===
-class OrderPayload(BasePayload):
-    stash_id: Optional[str] = None
-    buyer_member_id: Optional[str] = None
-    status: dict[str, 'OrderStatus'] = Field(default_factory=dict)
-    item_ids: Optional[List[str]] = None
+class ObjectPayload(BasePayload):
+    blueprint_id: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    blueprint_binding: Optional[BlueprintBinding] = None
+    attributes: Optional[List[Attribute]] = None
 
-    def to_model(self, model: 'Order', preserve: bool) -> 'Order':
+    def to_model(self, model: 'Object', preserve: bool) -> 'Object':
         update_data = self.model_dump(exclude_unset=True)
         if preserve:
-            updated_model = model.model_copy(deep=True)
-            for field, value in update_data.items():
-                setattr(updated_model, field, value)
-            return updated_model
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
         else:
-            for field, value in update_data.items():
-                setattr(model, field, value)
+            for k, v in update_data.items():
+                setattr(model, k, v)
             return model
 
-# === Event ===
-class EventPayload(BasePayload):
-    stash_id: Optional[str] = None
-    member_id: Optional[str] = None
-    type: Optional['EventType'] = None
-    title: Optional[str] = None
-    message: Optional[str] = None
+class ContextPayload(BasePayload):
+    name: Optional[str] = None
+    content: Optional[str] = None
 
-    def to_model(self, model: 'Event', preserve: bool) -> 'Event':
+    def to_model(self, model: 'Context', preserve: bool) -> 'Context':
         update_data = self.model_dump(exclude_unset=True)
         if preserve:
-            updated_model = model.model_copy(deep=True)
-            for field, value in update_data.items():
-                setattr(updated_model, field, value)
-            return updated_model
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
         else:
-            for field, value in update_data.items():
-                setattr(model, field, value)
+            for k, v in update_data.items():
+                setattr(model, k, v)
             return model
 
+class QuestPayload(BasePayload):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    task: Optional[str] = None
+    is_main: Optional[bool] = None
+    is_active: Optional[bool] = None
+    is_complete: Optional[bool] = None
+    parent_id: Optional[str] = None
+    children_ids: Optional[List[str]] = None
 
+    def to_model(self, model: 'Quest', preserve: bool) -> 'Quest':
+        update_data = self.model_dump(exclude_unset=True)
+        if preserve:
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
+        else:
+            for k, v in update_data.items():
+                setattr(model, k, v)
+            return model
+
+# === === Timeline Payloads === ===
+
+class ScenePayload(BasePayload):
+    campaign_id: Optional[str] = None
+    encounter_id: Optional[str] = None
+    content: Optional[str] = None
+    summary: Optional[str] = None
+    actions: Optional[List[Action]] = None
+    minute_time: Optional[int] = None
+
+    def to_model(self, model: 'Scene', preserve: bool) -> 'Scene':
+        update_data = self.model_dump(exclude_unset=True)
+        if preserve:
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
+        else:
+            for k, v in update_data.items():
+                setattr(model, k, v)
+            return model
+
+class EncounterPayload(BasePayload):
+    campaign_id: Optional[str] = None
+    chapter_id: Optional[str] = None
+    type: Optional[str] = None
+    goal: Optional[str] = None
+    length: Optional[int] = None
+    scene_ids: Optional[List[str]] = None
+
+    def to_model(self, model: 'Encounter', preserve: bool) -> 'Encounter':
+        update_data = self.model_dump(exclude_unset=True)
+        if preserve:
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
+        else:
+            for k, v in update_data.items():
+                setattr(model, k, v)
+            return model
+
+class ChapterPayload(BasePayload):
+    campaign_id: Optional[str] = None
+    description: Optional[str] = None
+    encounter_ids: Optional[List[str]] = None
+
+    def to_model(self, model: 'Chapter', preserve: bool) -> 'Chapter':
+        update_data = self.model_dump(exclude_unset=True)
+        if preserve:
+            updated = model.model_copy(deep=True)
+            for k, v in update_data.items():
+                setattr(updated, k, v)
+            return updated
+        else:
+            for k, v in update_data.items():
+                setattr(model, k, v)
+            return model
 
 # === === Pydantic Model Rebuilds === ===
-
 UserProtected.model_rebuild()
 
 UserPayload.model_rebuild()
 MemberPayload.model_rebuild()
-StashPayload.model_rebuild()
-StoragePayload.model_rebuild()
-LabelPayload.model_rebuild()
-ItemPayload.model_rebuild()
-OrderPayload.model_rebuild()
-EventPayload.model_rebuild()
+WorldPayload.model_rebuild()
+CampaignPayload.model_rebuild()
+BlueprintPayload.model_rebuild()
+ObjectPayload.model_rebuild()
+ContextPayload.model_rebuild()
+QuestPayload.model_rebuild()
+ScenePayload.model_rebuild()
+EncounterPayload.model_rebuild()
+ChapterPayload.model_rebuild()
 

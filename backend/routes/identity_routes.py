@@ -2,7 +2,7 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Header
 from backend.database import REPO, fs
 from backend.models import *
-from typing import List
+from typing import List, Optional
 
 import os
 from passlib.context import CryptContext
@@ -31,7 +31,7 @@ def get_firebase_admin_cred():
         except Exception as e:
             raise RuntimeError("Failed to parse FIREBASE_CREDENTIALS: " + str(e))
 
-    creds_path = os.environ.get("FIREBASE_CREDENTIALS_PATH", "backend/Keys/pantry-firebase-serviceAccount.json")
+    creds_path = os.environ.get("FIREBASE_CREDENTIALS_PATH", "backend/Keys/legends-firebase-serviceAccount.json")
     if os.path.exists(creds_path):
         try:
             return credentials.Certificate(creds_path)
@@ -64,11 +64,11 @@ def get_current_user(authorization: str = Header(None)):
 
     return user
 
-def get_current_member(user: User, stash_id: str) -> Member:
-    members = REPO.MEMBERS.query([("owner_user_id", "==", user.id), ("stash_id", "==", stash_id), ("is_active", "==", True)])
+def get_current_member(user: User, campaign_id: str) -> Member:
+    members = REPO.MEMBERS.query([("user_id", "==", user.id), ("campaign_id", "==", campaign_id), ("is_active", "==", True)])
     if not members:
-        raise HTTPException(status_code=404, detail="You do not have access to this stash.")
-    
+        raise HTTPException(status_code=404, detail="You do not have access to this campaign.")
+
     return members[0]
 # endregion
 
@@ -77,60 +77,45 @@ def get_current_member(user: User, stash_id: str) -> Member:
 async def get_current_user_route(current_user: User = Depends(get_current_user)):
     return UserProtected.from_model(current_user)
 
-@router.get("/current/members/active", response_model=List[Member])
-async def get_current_active_members(current_user: User = Depends(get_current_user)):
-    return current_user.get_active_members()
+@router.get("/current/members", response_model=List[Member])
+async def get_current_members(current_user: User = Depends(get_current_user)):
+    return current_user.get_members()
 
-@router.get("/current/stashes/active", response_model=List[Stash])
-async def get_current_active_stashes(current_user: User = Depends(get_current_user)):
-    members = current_user.get_active_members()
-    stash_ids = [member.stash_id for member in members]
-    return REPO.STASHES.query([("id", "in", stash_ids)]) or [] if stash_ids else []
-
-@router.get("/current/can_access/{stash_id}", response_model=bool)
-async def check_access(stash_id: str, current_user: User = Depends(get_current_user)):
-    members = REPO.MEMBERS.query([("owner_user_id", "==", current_user.id), ("stash_id", "==", stash_id), ("is_active", "==", True)])
+@router.get("/current/can_access/{campaign_id}", response_model=bool)
+async def check_access(campaign_id: str, current_user: User = Depends(get_current_user)):
+    members = REPO.MEMBERS.query([("user_id", "==", current_user.id), ("campaign_id", "==", campaign_id), ("is_active", "==", True)])
     return len(members) > 0
 # endregion
 
 # region === User API === ===
-@router.get("/user-template", response_model=UserProtected)
-def user_get_template():
-    raise HTTPException(status_code=200, detail="No template available for User.")
-
 @router.post("/user", response_model=UserProtected)
-def user_create(payload: UserPayload, response: Response):
-    if not payload.id:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User ID is required.")
-    
-    if not payload.username:
+def user_create(payload: UserPayload, response: Response):    
+    if not payload.username or payload.username.strip() == "":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username is required.")
     
-    if not payload.email:
+    if not payload.email or payload.email.strip() == "":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email is required.")
     
-    if not payload.password_current:
+    if not payload.password_current or payload.password_current.strip() == "":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password is required.")
 
     if len(REPO.USERS.query([('email','==', payload.email.strip().lower())])) > 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="An account with that email already exists.")
     
     user = User(
-        id=payload.id,
         username=payload.username,
-        email=payload.email,
+        email=payload.email.strip().lower(),
         password_hashed=pwd_context.hash(payload.password_current)
     )
 
-    created = REPO.USERS.add(user)
-    if not created:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="User registration failed")
-    return created
-    
+    if (created := REPO.USERS.add(user)):
+        return UserProtected.from_model(created)
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="User registration failed")
+
 @router.get("/user/{user_id}", response_model=UserProtected)
 def user_get(user_id: str, current_user: User = Depends(get_current_user)):
     if (user := REPO.USERS.get(user_id)):
-        return user
+        return UserProtected.from_model(user)
     raise HTTPException(status_code=404, detail="User not found.")
 
 @router.patch("/user", response_model=UserProtected)
@@ -157,9 +142,11 @@ def user_update(payload: UserPayload, current_user: User = Depends(get_current_u
 
         user.password_hashed = pwd_context.hash(payload.password_new)
 
-    if payload.email and payload.email != user.email:
+    if payload.email and payload.email.strip().lower() != user.email:
         if len(REPO.USERS.query([('email','==', payload.email.strip().lower())])) > 0:
             raise HTTPException(status_code=400, detail="An account with that email already exists.")
+
+    payload.email = payload.email.strip().lower() if payload.email else None
 
     updated_user = payload.to_model(user, preserve=True)
     
@@ -167,7 +154,7 @@ def user_update(payload: UserPayload, current_user: User = Depends(get_current_u
         return user
 
     if (updated_user := REPO.USERS.update(updated_user)):
-        return updated_user
+        return UserProtected.from_model(updated_user)
     raise HTTPException(status_code=500, detail="User update failed.")
 
 @router.delete("/user/{user_id}", response_model=bool)
@@ -178,19 +165,16 @@ def user_delete(user_id: str, current_user: User = Depends(get_current_user)):
 
     if not current_user.id == user.id:
         raise HTTPException(status_code=403, detail="You can only delete your own user account.")
-    
-    batch = fs.create_batch()
-    
-    user.purge(batch)
+        
+    batch = user.delete(fs.create_batch())
 
     if fs.commit_batch(batch):
         return True
     raise HTTPException(status_code=500, detail="User deletion failed.")
 
 # User-Specific APIs
-
-@router.get("/user/{user_id}/members/{filter}", response_model=List[Member])
-def user_get_members(user_id: str, filter: str, current_user: User = Depends(get_current_user)):
+@router.get("/user/{user_id}/members", response_model=List[Member])
+def user_get_members(user_id: str, current_user: User = Depends(get_current_user)):
     user = REPO.USERS.get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
@@ -198,42 +182,73 @@ def user_get_members(user_id: str, filter: str, current_user: User = Depends(get
     if not current_user.id == user.id:
         raise HTTPException(status_code=403, detail="You can only access your own members.")
 
-    if filter == "all":
-        return user.get_all_members()
-    elif filter == "active":
-        return user.get_active_members()
+    return user.get_members()
 
-@router.get("/user/{user_id}/stashes/{filter}", response_model=List[Stash])
-def user_get_stashes(user_id: str, filter: str, current_user: User = Depends(get_current_user)):
+@router.get("/user/{user_id}/worlds", response_model=List[World])
+def user_get_worlds(user_id: str, current_user: User = Depends(get_current_user)):
     user = REPO.USERS.get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
     
     if not current_user.id == user.id:
-        raise HTTPException(status_code=403, detail="You can only access your own stashes.")
+        raise HTTPException(status_code=403, detail="You can only access your own worlds.")
 
-    if filter == "all":
-        return user.get_all_stashes()
-    elif filter == "active":
-        return user.get_active_stashes()
+    return user.get_worlds()
+
+@router.get("/user/{user_id}/campaigns", response_model=List[Campaign])
+def user_get_campaigns(user_id: str, current_user: User = Depends(get_current_user)):
+    user = REPO.USERS.get(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+    
+    if not current_user.id == user.id:
+        raise HTTPException(status_code=403, detail="You can only access your own campaigns.")
+
+    return user.get_campaigns()
 # endregion
 
 # region === Member API === ===
-@router.get("/member-template", response_model=Member)
-def member_get_template(current_user: User = Depends(get_current_user)):
-    member = Member(
-        owner_user_id=current_user.id,
-        stash_id="",
-        nickname=current_user.username or "New Member",
-        debts={},
-        is_admin=False,
-        is_active=True
-    )
-    return member
-
 @router.post("/member", response_model=Member)
 def member_create(payload: MemberPayload, current_user: User = Depends(get_current_user)):
-    raise HTTPException(status_code=200, detail="Member creation is not supported directly. Create or join a stash to automatically create a member.")
+    if not payload.campaign_id:
+        raise HTTPException(status_code=400, detail="Campaign ID is required.")
+
+    if not (campaign := REPO.CAMPAIGNS.get(payload.campaign_id)):
+        raise HTTPException(status_code=404, detail="Campaign not found.")
+
+    if not payload.user_id:
+        payload.user_id = current_user.id
+
+    if not (user := REPO.USERS.get(payload.user_id)):
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    campaign_members = REPO.MEMBERS.query([("campaign_id", "==", payload.campaign_id)])
+    if any(member.user_id == payload.user_id for member in campaign_members):
+        raise HTTPException(status_code=400, detail="User is already a member of this campaign.")
+
+    member = Member(
+        user_id=payload.user_id,
+        campaign_id=payload.campaign_id,
+        is_admin=False,
+        is_dm=False,
+        is_active=False,
+        character_id=payload.character_id,
+        equipped_ids=payload.equipped_ids or [],
+        inventory_ids=payload.inventory_ids or [],
+    )
+    
+    campaign.member_ids.append(member.id)
+    user.member_ids.append(member.id)
+
+    batch = fs.create_batch()
+
+    REPO.USERS.batch_update(batch, user)
+    REPO.CAMPAIGNS.batch_update(batch, campaign)
+    REPO.MEMBERS.batch_add(batch, member)
+
+    if fs.commit_batch(batch):
+        return member
+    raise HTTPException(status_code=500, detail="Member creation failed.")
 
 @router.get("/member/{member_id}", response_model=Member)
 def member_get(member_id: str, current_user: User = Depends(get_current_user)):
@@ -241,9 +256,9 @@ def member_get(member_id: str, current_user: User = Depends(get_current_user)):
     if not member:
         raise HTTPException(status_code=404, detail="Member not found.")
 
-    if not (current_member := get_current_member(current_user, member.stash_id)):
-        raise HTTPException(status_code=403, detail="You do not have access to this stash.")
-    
+    if not (current_member := get_current_member(current_user, member.campaign_id)):
+        raise HTTPException(status_code=403, detail="You do not have access to this campaign.")
+
     return member
 
 @router.patch("/member", response_model=Member)
@@ -255,9 +270,9 @@ def member_update(payload: MemberPayload, current_user: User = Depends(get_curre
     if not member:
         raise HTTPException(status_code=404, detail="Member not found.")
 
-    current_member = get_current_member(current_user, member.stash_id)
+    current_member = get_current_member(current_user, member.campaign_id)
     if not current_member:
-        raise HTTPException(status_code=403, detail="You do not have access to this stash.")
+        raise HTTPException(status_code=403, detail="You do not have access to this campaign.")
 
     if not current_member.is_admin:
         if current_member.id != member.id:
@@ -271,17 +286,8 @@ def member_update(payload: MemberPayload, current_user: User = Depends(get_curre
     if not (changes := member.diff(updated_member)):
         return member
     
-    event = Event(
-        stash_id=member.stash_id,
-        member_id=current_member.id,
-        type=EventType.SUCCESS,
-        title=f"Member '{member.nickname}' Updated",
-        message=changes_to_string(changes)
-    )
-    
     batch = fs.create_batch()
 
-    REPO.EVENTS.batch_add(batch, event)
     REPO.MEMBERS.batch_update(batch, updated_member)
 
     if fs.commit_batch(batch):
@@ -294,89 +300,80 @@ def member_delete(member_id: str, current_user: User = Depends(get_current_user)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found.")
 
-    current_member = get_current_member(current_user, member.stash_id)
+    current_member = get_current_member(current_user, member.campaign_id)
     if not current_member:
-        raise HTTPException(status_code=403, detail="You do not have access to this stash.")
+        raise HTTPException(status_code=403, detail="You do not have access to this campaign.")
 
     if not current_member.is_admin:
         raise HTTPException(status_code=403, detail="Only admins can delete members.")
-    
-    if member.id == current_member.id:
-        raise HTTPException(status_code=403, detail="You cannot delete your own member account.")
 
-    batch = fs.create_batch()
-    
-    member.purge(batch, current_member.id)
+    batch = member.delete(fs.create_batch())
     
     if fs.commit_batch(batch):
         return True
     raise HTTPException(status_code=500, detail="Member deletion failed.")
 
 # Member-Specific APIs
-
 @router.get("/member/{member_id}/user", response_model=UserProtected)
 def member_get_user(member_id: str, current_user: User = Depends(get_current_user)):
     member = REPO.MEMBERS.get(member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found.")
 
-    if not (current_member := get_current_member(current_user, member.stash_id)):
-        raise HTTPException(status_code=403, detail="You do not have access to this stash.")
+    if not (current_member := get_current_member(current_user, member.campaign_id)):
+        raise HTTPException(status_code=403, detail="You do not have access to this campaign.")
 
-    user = member.get_owner
+    user = member.get_user()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
 
     return user
 
-@router.get("/member/{member_id}/stash", response_model=Stash)
-def member_get_stash(member_id: str, current_user: User = Depends(get_current_user)):
+@router.get("/member/{member_id}/campaign", response_model=Campaign)
+def member_get_campaign(member_id: str, current_user: User = Depends(get_current_user)):
     member = REPO.MEMBERS.get(member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found.")
 
-    if not (current_member := get_current_member(current_user, member.stash_id)):
-        raise HTTPException(status_code=403, detail="You do not have access to this stash.")
+    if not (current_member := get_current_member(current_user, member.campaign_id)):
+        raise HTTPException(status_code=403, detail="You do not have access to this campaign.")
 
-    stash = member.get_stash
-    if not stash:
-        raise HTTPException(status_code=404, detail="Stash not found.")
+    campaign = member.get_campaign()
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found.")
 
-    return stash
+    return campaign
 
-@router.get("/member/{member_id}/items/{filter}", response_model=List[Item])
-def member_get_items(member_id: str, filter: str, current_user: User = Depends(get_current_user)):
+@router.get("/member/{member_id}/character", response_model=Optional[Object])
+def member_get_character(member_id: str, current_user: User = Depends(get_current_user)):
     member = REPO.MEMBERS.get(member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found.")
 
-    if not (current_member := get_current_member(current_user, member.stash_id)):
-        raise HTTPException(status_code=403, detail="You do not have access to this stash.")
+    if not (current_member := get_current_member(current_user, member.campaign_id)):
+        raise HTTPException(status_code=403, detail="You do not have access to this campaign.")
 
-    if filter == "bought":
-        return member.get_bought_items()
-    elif filter == "used":
-        return member.get_used_items()
+    return member.get_character()
 
-@router.get("/member/{member_id}/orders", response_model=List[Order])
-def member_get_orders(member_id: str, current_user: User = Depends(get_current_user)):
+@router.get("/member/{member_id}/equipped", response_model=List[Object])
+def member_get_equipped(member_id: str, current_user: User = Depends(get_current_user)):
     member = REPO.MEMBERS.get(member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found.")
 
-    if not (current_member := get_current_member(current_user, member.stash_id)):
-        raise HTTPException(status_code=403, detail="You do not have access to this stash.")
+    if not (current_member := get_current_member(current_user, member.campaign_id)):
+        raise HTTPException(status_code=403, detail="You do not have access to this campaign.")
 
-    return member.get_orders()
+    return member.get_equipped()
 
-@router.get("/member/{member_id}/events", response_model=List[Event])
-def member_get_events(member_id: str, current_user: User = Depends(get_current_user)):
+@router.get("/member/{member_id}/inventory", response_model=List[Object])
+def member_get_inventory(member_id: str, current_user: User = Depends(get_current_user)):
     member = REPO.MEMBERS.get(member_id)
     if not member:
         raise HTTPException(status_code=404, detail="Member not found.")
 
-    if not (current_member := get_current_member(current_user, member.stash_id)):
-        raise HTTPException(status_code=403, detail="You do not have access to this stash.")
+    if not (current_member := get_current_member(current_user, member.campaign_id)):
+        raise HTTPException(status_code=403, detail="You do not have access to this campaign.")
 
-    return member.get_events()
+    return member.get_inventory()
 # endregion

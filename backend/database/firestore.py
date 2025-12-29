@@ -35,7 +35,7 @@ class FirestoreWrapper:
             except Exception as e:
                 raise RuntimeError("Failed to parse FIREBASE_CREDENTIALS: " + str(e))
 
-        creds_path = os.environ.get("FIREBASE_CREDENTIALS_PATH", "backend/Keys/pantry-firebase-serviceAccount.json")
+        creds_path = os.environ.get("FIREBASE_CREDENTIALS_PATH", "backend/Keys/legends-firebase-serviceAccount.json")
         if os.path.exists(creds_path):
             try:
                 credentials = service_account.Credentials.from_service_account_file(creds_path)

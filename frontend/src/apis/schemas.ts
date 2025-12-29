@@ -3,232 +3,202 @@ export const EMPTY_STRING = "";
 export const UNKNOWN = "Unknown";
 export const UNNAMED = "Unnamed";
 
-// === === Enums === ===
-
-// === StorageType ===
-export const StorageType = {
-    FRIDGE: "Fridge",
-    FREEZER: "Freezer",
-    PANTRY: "Pantry",
-    GARDEN: "Garden",
-    OTHER: "Other"
-} as const;
-export type StorageType = typeof StorageType[keyof typeof StorageType];
-
-// === OrderStatus ===
-export const OrderStatus = {
-    SKIPPED: "skipped",
-    COMPLETED: "completed",
-    IN_PROGRESS: "in_progress"
-} as const;
-export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
-
-// === EventType ===
-export const EventType = {
-    SUCCESS: "success",
-    INFO: "info",
-    WARNING: "warning",
-    DANGER: "danger"
-} as const;
-export type EventType = typeof EventType[keyof typeof EventType];
-
-// === FoodGroup ===
-export const FoodGroup = {
-    FRUITS: "Fruits",
-    VEGETABLES: "Vegetables",
-    DAIRY: "Dairy",
-    PROTEIN: "Protein",
-    GRAINS: "Grains",
-    OILS: "Oils",
-    SNACKS: "Snacks",
-    DRINKS: "Drinks",
-    MISC: "Misc"
-}
-
-// === UI Settings ===
-export interface UISettings {
-    x: number;
-    y: number;
-    w: number;
-    h: number;
-    color?: string;
-}
-
-// === === Responses === ===
-
-// === Base ===
+// === === Base === ===
 export interface BaseDocument {
     id: string;
-    created_at: string;
-    updated_at: string;
+    createdAt: string;  // ISO datetime
+    updatedAt: string;
 }
 
-// === User ===
+// === === Identification Models === ===
 export interface User extends BaseDocument {
-    username: string;
     email: string;
-    member_ids: string[];
+    username: string;
+    memberIds: string[];
+    worldIds: string[];
+    campaignIds: string[];
 }
 
-
-// === Member ===
 export interface Member extends BaseDocument {
-    owner_user_id?: string;
-    stash_id: string;
-    nickname: string;
-    debts: Record<string, number>;
-    is_admin: boolean;
-    is_active: boolean;
+    userId?: string;
+    campaignId: string;
+    isAdmin: boolean;
+    isDm: boolean;
+    isActive: boolean;
+    characterId?: string;
+    equippedIds: string[];
+    inventoryIds: string[];
 }
 
-// === Stash ===
-export interface Stash extends BaseDocument {
+// === === Game Setting Models === ===
+export interface World extends BaseDocument {
     name: string;
-    address?: string;
-    member_ids: string[];
-    storage_ids: string[];
-    label_ids: string[];
-    join_code: string;
-}
-
-// === Storage ===
-export interface Storage extends BaseDocument {
-    name: string;
-    stash_id: string;
-    type: StorageType;
     description?: string;
-    item_ids: string[];
-    ui_settings: UISettings;
+    settings: Record<string, any>;
+    blueprintIds: string[];
+    objectIds: string[];
+    contextIds: string[];
 }
 
-// === Label ===
-export interface Label extends BaseDocument {
+export interface Campaign extends BaseDocument {
+    worldId: string;
     name: string;
-    preferred_unit: string;
-    stash_id: string;
-    default_storage_id: string;
-    current_quantity: number;
-    item_ids: string[];
-    food_group?: string;
-}
-
-// === Item ===
-export interface Item extends BaseDocument {
-    name: string;
-    label_id: string;
-    storage_id: string;
-    buyer_member_id?: string;
-    allowed_member_usage: Record<string, number>;
-    total_quantity: number;
-    current_quantity: number;
-    preferred_unit?: string;
-    cost?: number;
-    expiry_date?: Date;
-}
-
-// === Order ===
-export interface Order extends BaseDocument {
-    stash_id: string;
-    buyer_member_id?: string;
-    status: Record<string, OrderStatus>;
-    item_ids: string[];
-}
-
-// === Event ===
-export interface Event extends BaseDocument {
-    stash_id: string;
-    member_id: string;
-    type: EventType;
-    title: string;
-    message?: string;
-}
-
-
-
-// === Payloads ===
-
-// === Base ===
-export interface BasePayload {
-    id?: string;
-}
-
-// === User ===
-export interface UserPayload extends BasePayload {
-    email?: string;
-    username?: string;
-    password_current?: string;
-    password_new?: string;
-    member_ids?: string[];
-}
-
-// === Member ===
-export interface MemberPayload extends BasePayload {
-    owner_user_id?: string;
-    stash_id?: string;
-    nickname?: string;
-    debts?: Record<string, number>; // {member_id: amount_owed}
-    is_admin?: boolean;
-    is_active?: boolean;
-}
-
-// === Stash ===
-export interface StashPayload extends BasePayload {
-    name?: string;
-    address?: string;
-    member_ids?: string[];
-    storage_ids?: string[];
-    label_ids?: string[];
-    join_code?: string;
-}
-
-// === Storage ===
-export interface StoragePayload extends BasePayload {
-    name?: string;
-    stash_id?: string;
-    type?: StorageType;
     description?: string;
-    item_ids?: string[];
-    ui_settings?: UISettings;
+    settings: Record<string, any>;
+    memberIds: string[];
+    blueprintIds: string[];
+    objectIds: string[];
+    contextIds: string[];
+    questIds: string[];
 }
 
-// === Label ===
-export interface LabelPayload extends BasePayload {
-    name?: string;
-    preferred_unit?: string;
-    stash_id?: string;
-    default_storage_id?: string;
-    current_quantity?: number;
-    item_ids?: string[];
-    food_group?: string;
+// === === Content Models === ===
+export const AttributeType = {
+    STRING: "string",
+    NUMBER: "number",
+    BOOLEAN: "boolean",
+    OBJECT: "object",
+} as const;
+export type AttributeType = typeof AttributeType[keyof typeof AttributeType];
+
+export interface Attribute {
+    name: string;
+    type: AttributeType;
+    values: any[];
+    options?: any[];
+    isRequired: boolean;
+    isList: boolean;
+    isDropdown: boolean;
+    attributeBinding?: string;
 }
 
-// === Item ===
-export interface ItemPayload extends BasePayload {
-    name?: string;
-    label_id?: string;
-    storage_id?: string;
-    buyer_member_id?: string;
-    allowed_member_usage?: Record<string, number>;
-    total_quantity?: number;
-    current_quantity?: number;
-    preferred_unit?: string;
-    cost?: number;
-    expiry_date?: Date;
+export const BlueprintBinding = {
+    PLAYER_CHARACTER: "pc",
+    NON_PLAYER_CHARACTER: "npc",
+    RACE: "race",
+    ANIMAL: "animal",
+    FACTION: "faction",
+    WEAPON: "weapon",
+    ABILITY: "ability",
+    ARMOR: "armor",
+    ACCESSORY: "accessory",
+    TOOL: "tool",
+    CURRENCY: "currency",
+    CONSUMABLE: "consumable",
+    ITEM: "item",
+    STATUS: "status",
+    CONDITION: "condition",
+    LOCATION: "location",
+    VEHICLE: "vehicle",
+} as const;
+export type BlueprintBinding = typeof BlueprintBinding[keyof typeof BlueprintBinding];
+
+export interface Blueprint extends BaseDocument {
+    name: string;
+    description?: string;
+    blueprintBinding?: BlueprintBinding;
+    attributes: Attribute[];
 }
 
-// === Order ===
-export interface OrderPayload extends BasePayload {
-    stash_id?: string;
-    buyer_member_id?: string;
-    status?: Record<string, OrderStatus>;
-    item_ids?: string[];
+export interface GameObject extends BaseDocument {
+    blueprintId?: string;
+    name: string;
+    description?: string;
+    blueprintBinding?: BlueprintBinding;
+    attributes: Attribute[];
 }
 
-// === Event ===
-export interface EventPayload extends BasePayload {
-    stash_id?: string;
-    member_id?: string;
-    type?: EventType;
-    title?: string;
-    message?: string;
+export interface Context extends BaseDocument {
+    name: string;
+    content: string;
+}
+
+export interface Quest extends BaseDocument {
+    name: string;
+    description?: string;
+    task: string;
+    isMain: boolean;
+    isActive: boolean;
+    isComplete: boolean;
+    parentId?: string;
+    childrenIds: string[];
+}
+
+// === === Timeline Models ===
+export const ActionType = {
+    WAIT: "wait",
+    ATTACK: "attack",
+    DEFEND: "defend",
+    DODGE: "dodge",
+    MOVE: "move",
+    ADV_MOVE: "adv_move",
+    SNEAK: "sneak",
+    PERSUADE: "persuade",
+    INTIMIDATE: "intimidate",
+    ANTAGONIZE: "antagonize",
+    DECEIVE: "deceive",
+    ACTIVATE: "activate",
+    USE_ITEM: "use_item",
+    CAST: "cast",
+    INTERACT: "interact",
+    INVESTIGATE: "investigate",
+    SIMPLE: "simple",
+    IMPOSSIBLE: "impossible",
+} as const;
+export type ActionType = typeof ActionType[keyof typeof ActionType];
+
+export const ActionStatus = {
+    WAITING: "waiting",
+    ROLLING: "rolling",
+    DENIED: "denied",
+    CRIT_FAILURE: "crit_failure",
+    FAILURE: "failure",
+    SUCCESS: "success",
+    CRIT_SUCCESS: "crit_success",
+} as const;
+export type ActionStatus = typeof ActionStatus[keyof typeof ActionStatus];
+
+export interface Action {
+    memberId: string;
+    type?: ActionType;
+    intent: string;
+    status: ActionStatus;
+    itemIds: string[];
+    targetIds: string[];
+    requirement?: number;
+}
+
+export interface Scene extends BaseDocument {
+    campaignId: string;
+    encounterId: string;
+    content: string;
+    summary?: string;
+    actions: Action[];
+    minuteTime: number;
+}
+
+export const EncounterType = {
+    COMBAT: "combat",
+    EXPLORATION: "exploration",
+    SOCIAL: "social",
+    PUZZLE: "puzzle",
+    STORE: "store",
+    TRAVEL: "travel",
+    MISC: "miscellaneous",
+} as const;
+export type EncounterType = typeof EncounterType[keyof typeof EncounterType];
+
+export interface Encounter extends BaseDocument {
+    campaignId: string;
+    chapterId: string;
+    type: EncounterType;
+    goal: string;
+    length: number;
+    sceneIds: string[];
+}
+
+export interface Chapter extends BaseDocument {
+    campaignId: string;
+    description?: string;
+    encounterIds: string[];
 }

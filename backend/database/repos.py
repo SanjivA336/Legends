@@ -51,27 +51,32 @@ class BaseRepo(Generic[T]):
         batch.delete(doc_ref)
     
 from backend.models.models import (
-    User, Member, Stash, Storage, Label, Item, Order, Event
+    User, Member, World, Campaign, Blueprint, Object, Context, Quest, Scene, Encounter, Chapter
 )
 
 user_repo = BaseRepo[User](User, "users")
 member_repo = BaseRepo[Member](Member, "members")
-stash_repo = BaseRepo[Stash](Stash, "stashes")
-storage_repo = BaseRepo[Storage](Storage, "storages")
-label_repo = BaseRepo[Label](Label, "labels")
-item_repo = BaseRepo[Item](Item, "items")
-order_repo = BaseRepo[Order](Order, "orders")
-event_repo = BaseRepo[Event](Event, "events")
+world_repo = BaseRepo[World](World, "worlds")
+campaign_repo = BaseRepo[Campaign](Campaign, "campaigns")
+blueprint_repo = BaseRepo[Blueprint](Blueprint, "blueprints")
+object_repo = BaseRepo[Object](Object, "objects")
+context_repo = BaseRepo[Context](Context, "contexts")
+quest_repo = BaseRepo[Quest](Quest, "quests")
+scene_repo = BaseRepo[Scene](Scene, "scenes")
+encounter_repo = BaseRepo[Encounter](Encounter, "encounters")
+chapter_repo = BaseRepo[Chapter](Chapter, "chapters")
 
 class RepoContainer:
     USERS = user_repo
     MEMBERS = member_repo
-    STASHES = stash_repo
-    STORAGES = storage_repo
-    LABELS = label_repo
-    ITEMS = item_repo
-    ORDERS = order_repo
-    EVENTS = event_repo
+    WORLDS = world_repo
+    CAMPAIGNS = campaign_repo
+    BLUEPRINTS = blueprint_repo
+    OBJECTS = object_repo
+    CONTEXTS = context_repo
+    QUESTS = quest_repo
+    SCENES = scene_repo
+    ENCOUNTERS = encounter_repo
+    CHAPTERS = chapter_repo
 
-# Export the singleton instance
 REPO = RepoContainer()
