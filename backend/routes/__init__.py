@@ -7,12 +7,14 @@ def changes_to_string(changes: dict) -> str:
         messages.append(f"- **{field}** changed from '{old}' to '{new}'")
     return "\n".join(messages)
 
-from .container_routes import router as container_router
+from .content_routes import router as content_router
+from .game_routes import router as game_router
 from .identity_routes import router as identity_router
-from .inventory_routes import router as inventory_router
+from .timeline_routes import router as timeline_router
 
 __all__ = [
-    "container_router",
+    "content_router",
+    "game_router",
     "identity_router",
-    "inventory_router",
+    "timeline_router",
 ]

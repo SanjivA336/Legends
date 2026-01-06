@@ -1,5 +1,5 @@
 import { GET_ENDPOINT, BaseAPI } from "@apis/apiCore";
-import type { User, Member, Stash, Item, Event, Order, UserPayload, MemberPayload } from "@apis/schemas";
+import type { User, Member, Campaign, World, Blueprint, Object, Context, Quest, Action, Scene, Encounter, Chapter } from "@apis/schemas";
 
 // === Current ===
 export class CurrentAPI {
@@ -7,21 +7,20 @@ export class CurrentAPI {
         return await GET_ENDPOINT<User>("/current/user");
     }
 
-    static async get_active_members() {
-        return await GET_ENDPOINT<Member[]>("/current/members/active");
+    static async get_members() {
+        return await GET_ENDPOINT<Member[]>("/current/members");
     }
 
-    static async get_active_stashes() {
-        return await GET_ENDPOINT<Stash[]>("/current/stashes/active");
+    static async get_worlds() {
+        return await GET_ENDPOINT<World[]>("/current/worlds");
     }
 
-    static async get_current_member(stash_id: string): Promise<Member | null> {
-        const members = await this.get_active_members();
-        return members.find(member => member.stash_id === stash_id) || null;
+    static async get_campaigns(): Promise<Campaign[]> {
+        return await GET_ENDPOINT<Campaign[]>("/current/campaigns");
     }
 
-    static async check_access(stash_id: string): Promise<boolean> {
-        return await GET_ENDPOINT<boolean>(`/current/can_access/${stash_id}`);
+    static async check_access(campaign_id: string): Promise<boolean> {
+        return await GET_ENDPOINT<boolean>(`/current/can_access/${campaign_id}`);
     }
 };
 
@@ -30,7 +29,6 @@ export class UserAPI extends BaseAPI {
     static override endpoint = "user";
 
     // === Single CRU Operations ===
-
     static async get(id: string): Promise<User> {
         return await this._get<User>(id);
     }

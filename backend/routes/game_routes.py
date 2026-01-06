@@ -10,7 +10,7 @@ from datetime import timedelta
 from fastapi.security import OAuth2PasswordBearer
 
 from .routes_helper import changes_to_string
-from identity_routes import get_current_user, get_current_member
+from .identity_routes import get_current_user, get_current_member
 
 # region === Config === ===
 router = APIRouter()

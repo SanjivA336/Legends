@@ -81,6 +81,14 @@ async def get_current_user_route(current_user: User = Depends(get_current_user))
 async def get_current_members(current_user: User = Depends(get_current_user)):
     return current_user.get_members()
 
+@router.get("/current/worlds", response_model=List[World])
+async def get_current_worlds(current_user: User = Depends(get_current_user)):
+    return current_user.get_worlds()
+
+@router.get("/current/campaigns", response_model=List[Campaign])
+async def get_current_campaigns(current_user: User = Depends(get_current_user)):
+    return current_user.get_campaigns()
+
 @router.get("/current/can_access/{campaign_id}", response_model=bool)
 async def check_access(campaign_id: str, current_user: User = Depends(get_current_user)):
     members = REPO.MEMBERS.query([("user_id", "==", current_user.id), ("campaign_id", "==", campaign_id), ("is_active", "==", True)])

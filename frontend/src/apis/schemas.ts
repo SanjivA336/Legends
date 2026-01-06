@@ -100,7 +100,7 @@ export interface Blueprint extends BaseDocument {
     attributes: Attribute[];
 }
 
-export interface GameObject extends BaseDocument {
+export interface Object extends BaseDocument {
     blueprintId?: string;
     name: string;
     description?: string;

@@ -13,6 +13,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(content_router)
+app.include_router(game_router)
 app.include_router(identity_router)
-app.include_router(container_router)
-app.include_router(inventory_router)
+app.include_router(timeline_router)
